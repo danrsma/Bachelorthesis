@@ -214,7 +214,7 @@ async def tools_llm_func(state):
     # Make Viewport Screenshot
     screenshot_code = """
         import bpy
-        bpy.context.scene.render.filepath = "/home/daniel/Bachelorarbeit/agents/render.png"
+        bpy.context.scene.render.filepath = "/home/daniel/Bachelorthesis/agents/render.png"
         bpy.ops.render.render(write_still=True)
         """
     try:
