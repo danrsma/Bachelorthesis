@@ -214,12 +214,12 @@ async def tools_llm_func(state):
     # Make Viewport Screenshot
     screenshot_code = """
         import bpy
-        bpy.context.scene.render.filepath = "/home/daniel/Bachelorarbeit/agents/render.png"
+        bpy.context.scene.render.filepath = "/home/daniel/Bachelorthesis/agents/render.png"
         bpy.ops.render.render(write_still=True)
         """
     try:
         tool_result = await agent.ainvoke(
-            {"messages": [{"role": "user", "content": "execute__blender_code\n"+screenshot_code+
+            {"messages": [{"role": "user", "content": "Execute the following Blender Python Code:\n"+screenshot_code+
             "\nIf it does not work try to fix and reexecute it."}]}
         )
     except Exception as e:        
