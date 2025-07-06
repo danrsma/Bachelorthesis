@@ -127,7 +127,7 @@ async def vision_llm_func(state: MyState) -> MyState:
 
     # Create Vision Agent Chain
     vision_llm_chat = ChatOllama(
-        model="gemma3:4b",
+        model="gemma3:12b",
         temperature=0.5,
     )   
 
@@ -155,7 +155,7 @@ def code_llm_func(state):
 
     # Create Code Agent
     code_llm_chat = ChatOllama(
-        model="hf.co/mradermacher/BlenderLLM-GGUF:Q8_0",
+        model="hf.co/mradermacher/BlenderLLM-GGUF:F16",
         temperature=0.5,
     )
 
@@ -179,8 +179,8 @@ async def tools_llm_func(state):
     client = MultiServerMCPClient(
         {
             "blender_mcp": {
-                "command": "uvx",
-                "args": ["blender-mcp"],
+                "command": "docker",
+                "args": ["run", "--rm", "-d", "-p", "9876:9876", "blender-mcp"],
                 "transport": "stdio",
             }
         }
@@ -194,7 +194,7 @@ async def tools_llm_func(state):
     
     # Create Tool Agent
     tools_llm_chat = ChatOllama(
-        model="qwen3:8b",
+        model="qwen3:30b",
         temperature=0.5,
     )
     agent = create_react_agent(
