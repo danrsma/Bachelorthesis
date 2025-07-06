@@ -180,7 +180,7 @@ async def tools_llm_func(state):
         {
             "blender_mcp": {
                 "command": "docker",
-                "args": ["run", "--rm", "-d", "-p", "9876:9876", "blender-mcp"],
+                "args": ["run", "--rm","-i", "-d", "-p", "9876:9876", "blender-mcp"],
                 "transport": "stdio",
             }
         }
@@ -205,7 +205,7 @@ async def tools_llm_func(state):
     # Get Agent Result
     try:
         tool_result = await agent.ainvoke(
-            {"messages": [{"role": "user", "content": "execute__blender_code\n"+state["code"]}]}
+            {"messages": [{"role": "user", "content": "Execute the following Blender Python Code:\n"+state["code"]}]}
         )
 
     except Exception as e:        
