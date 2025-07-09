@@ -120,8 +120,6 @@ async def vision_llm_func(state: MyState) -> MyState:
     except Exception as e:
         print(f"Error in main execution: {e}")
 
-
-    pil_image.show()
     
     image_b64= convert_to_base64(pil_image)
 
@@ -180,7 +178,7 @@ async def tools_llm_func(state):
         {
             "blender_mcp": {
                 "command": "docker",
-                "args": ["run", "--rm","-i", "-d", "-p", "9876:9876", "blender-mcp"],
+                "args": ["run", "--rm","-i", "blender-mcp"],
                 "transport": "stdio",
             }
         }
