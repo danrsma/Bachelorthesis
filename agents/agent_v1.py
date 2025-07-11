@@ -157,7 +157,7 @@ async def main():
     print(result1)
     
     llm2 = ChatOllama(
-        model="hf.co/mradermacher/BlenderLLM-GGUF:Q8_0",
+        model="hf.co/mradermacher/BlenderLLM-GGUF:F16",
         temperature=0,
     )
     result2 = llm2.invoke(

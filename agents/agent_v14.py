@@ -177,8 +177,8 @@ async def tools_llm_func(state):
     client = MultiServerMCPClient(
         {
             "blender_mcp": {
-                "command": "docker",
-                "args": ["run", "--rm","-i", "blender-mcp"],
+                "command": "firejail",
+                "args": ["uvx", "blender-mcp", "--host", "localhost", "--port", "9876"],
                 "transport": "stdio",
             }
         }
