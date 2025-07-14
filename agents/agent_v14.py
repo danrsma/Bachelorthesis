@@ -70,17 +70,17 @@ class InputApp(tk.Tk):
 class MyState(TypedDict):
 
     # Pass States Through Stategraph
-    vision: str 
-    code: str 
-    filepath: str 
-    userinput: str 
-    promptvision: str 
-    promptcode: str 
+    vision: str
+    code: str
+    filepath: str
+    userinput: str
+    promptvision: str
+    promptcode: str
     error: str
 
 
 def prompt_func(data):
-    
+
     # Chain Image And Text Data
     text = data["text"]
     image = data["image"]
@@ -110,9 +110,12 @@ def convert_to_base64(pil_image):
 
 
 async def vision_llm_func(state: MyState) -> MyState:
-    
+
     # Get Image Data
     file_path = state["filepath"]
+    if file_path == "":
+        state["vision"] = ""
+        return state
     try:
 
         pil_image = Image.open(file_path)
@@ -120,31 +123,31 @@ async def vision_llm_func(state: MyState) -> MyState:
     except Exception as e:
         print(f"Error in main execution: {e}")
 
-    
+
     image_b64= convert_to_base64(pil_image)
 
     # Create Vision Agent Chain
     vision_llm_chat = ChatOllama(
         model="gemma3:12b",
         temperature=0.5,
-    )   
+    )
 
     prompt_func_runnable = RunnableLambda(prompt_func)
-    chain = prompt_func_runnable | vision_llm_chat 
-    
+    chain = prompt_func_runnable | vision_llm_chat
 
-    # Get Agent Chain Result 
+
+    # Get Agent Chain Result
     vision_result = chain.invoke({
         "text": state["promptvision"],
         "image": image_b64,
-    })    
+    })
 
     print("\n")
     print("ImageLLM Output:")
     print("\n")
     print(vision_result.content)
     print("\n")
-    
+
     state["vision"] = vision_result.content
 
     return state
@@ -167,7 +170,7 @@ def code_llm_func(state):
     print(code_result.content)
     print("\n")
     state["code"] = code_result.content
-    
+
     return state
 
 
@@ -189,7 +192,7 @@ async def tools_llm_func(state):
 
     except Exception as e:
         print(f"Error in main execution: {e}")
-    
+
     # Create Tool Agent
     tools_llm_chat = ChatOllama(
         model="qwen3:30b",
@@ -199,20 +202,20 @@ async def tools_llm_func(state):
         model = tools_llm_chat,
         tools=tools
     )
-    
+
     # Get Agent Result
     try:
         tool_result = await agent.ainvoke(
             {"messages": [{"role": "user", "content": "Execute the following Blender Python Code:\n"+state["code"]}]}
         )
 
-    except Exception as e:        
+    except Exception as e:
         print(f"Error in main execution: {e}")
-    
+
     # Make Viewport Screenshot
     screenshot_code = """
         import bpy
-        bpy.context.scene.render.filepath = "/home/daniel/Bachelorthesis/agents/render.png"
+        bpy.context.scene.render.filepath = "/home/student-rossmaier/Bachelorthesis/agents/render.png"
         bpy.ops.render.render(write_still=True)
         """
     try:
@@ -220,17 +223,17 @@ async def tools_llm_func(state):
             {"messages": [{"role": "user", "content": "Execute the following Blender Python Code:\n"+screenshot_code+
             "\nIf it does not work try to fix and reexecute it."}]}
         )
-    except Exception as e:        
+    except Exception as e:
         print(f"Error in main execution: {e}")
 
 
     state["error"] = tool_result
-    
+
     return state
 
-    
+
 async def main():
-    
+
     # Open Input Window
     app = InputApp()
     app.mainloop()
@@ -251,8 +254,8 @@ async def main():
         print("selected_file_path =", app.selected_file_path)
         file_path = app.selected_file_path
         user_input = app.user_input
-    
-    
+
+
     # Create StateGraph With Nodes And Edges
     graph = StateGraph(MyState)
     graph.add_node("vision_llm", vision_llm_func)
@@ -265,19 +268,19 @@ async def main():
     graph = graph.compile()
 
     # Get StateGraph Output State
-    prompt_vison = """Provide a detailed and extensive description of the image. 
-        Describe every object in the picture accurately. 
+    prompt_vision = """Provide a detailed and extensive description of the image.
+        Describe every object in the picture accurately.
         Describe the shape of the lanscape elements."""
-    prompt_code = "Create Blender Code of the described Landscape. Create every Object and Shape with math."    
-    input_state = MyState(userinput=user_input,filepath=file_path,promptcode=prompt_code,promptvision=prompt_vison,code="")
+    prompt_code = "Create Blender Code of the described Landscape. Create every Object and Shape with math."
+    input_state = MyState(userinput=user_input,filepath=file_path,promptcode=prompt_code,promptvision=prompt_vision,code="")
     output_state = await graph.ainvoke(input_state)
     print(output_state)
 
     # Prepare Rendering Loop
-    file_path_loop = "/home/daniel/Bachelorarbeit/agents/render.png"
+    file_path_loop = "/home/student-rossmaier/Bachelorthesis/agents/render.png"
     prompt_vision_loop = "How does image compare to the the discription? What are the differences?"
-    prompt_code_loop = """The new image is the result of the provided Blender Code. 
-        Improve the Blender Code to minimize the differences. 
+    prompt_code_loop = """The new image is the result of the provided Blender Code.
+        Improve the Blender Code to minimize the differences.
         Also look at the errors during the first execution and try to avoid them.
         """
     output_state["filepath"] = file_path_loop
@@ -286,20 +289,19 @@ async def main():
 
     input_state = output_state
     print(input_state)
-    
+
     # Start Rendering Loop
     for i in range(5):
         print("\n")
         print(f"++++++++++++++++++++++++++++++++++++++")
-        print(f"+ Rendering Loop iteration: {str(i)} +") 
+        print(f"+ Rendering Loop iteration: {str(i)} +")
         print(f"++++++++++++++++++++++++++++++++++++++")
         print("\n")
         output_state = await graph.ainvoke(input_state)
         print(output_state)
         input_state = output_state
-    
+
 
 if __name__ == "__main__":
     # Run the example
     asyncio.run(main())
-
