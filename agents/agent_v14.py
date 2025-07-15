@@ -181,7 +181,7 @@ async def tools_llm_func(state):
         {
             "blender_mcp": {
                 "command": "firejail",
-                "args": ["uvx", "blender-mcp", "--host", "localhost", "--port", "9876"],
+                "args": ["uvx", "blender-mcp", "--private", "--net=none", "--caps.drop=all", "--seccomp", "--private-dev", "--hostname=sandbox"],
                 "transport": "stdio",
             }
         }
@@ -284,7 +284,7 @@ async def main():
         Also look at the errors during the first execution and try to avoid them.
         """
     output_state["filepath"] = file_path_loop
-    output_state["promptvision"] = output_state["vision"]+prompt_vision_loop
+    output_state["promptvision"] = output_state["userinput"]+output_state["vision"]+prompt_vision_loop
     output_state["promptcode"] = prompt_code_loop
 
     input_state = output_state
@@ -305,3 +305,4 @@ async def main():
 if __name__ == "__main__":
     # Run the example
     asyncio.run(main())
+    
