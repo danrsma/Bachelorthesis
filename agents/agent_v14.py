@@ -129,7 +129,7 @@ async def vision_llm_func(state: MyState) -> MyState:
     # Create Vision Agent Chain
     vision_llm_chat = ChatOllama(
         model="gemma3:12b",
-        temperature=0.5,
+        temperature=0.9,
     )
 
     prompt_func_runnable = RunnableLambda(prompt_func)
@@ -157,7 +157,7 @@ def code_llm_func(state):
     # Create Code Agent
     code_llm_chat = ChatOllama(
         model="hf.co/mradermacher/BlenderLLM-GGUF:F16",
-        temperature=0.5,
+        temperature=0.9,
     )
 
     # Get Agent Result
