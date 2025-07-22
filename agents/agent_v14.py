@@ -67,18 +67,6 @@ class InputApp(tk.Tk):
         self.destroy()
 
 
-class MyState(TypedDict):
-
-    # Pass States Through Stategraph
-    vision: str
-    code: str
-    filepath: str
-    userinput: str
-    promptvision: str
-    promptcode: str
-    error: str
-
-
 def prompt_func(data):
 
     # Chain Image And Text Data
@@ -109,13 +97,29 @@ def convert_to_base64(pil_image):
     return img_str
 
 
-async def vision_llm_func(state: MyState) -> MyState:
+async def main():
 
-    # Get Image Data
-    file_path = state["filepath"]
-    if file_path == "":
-        state["vision"] = ""
-        return state
+    # Open Input Window
+    app = InputApp()
+    app.mainloop()
+
+    # Output Collected Inputs In Terminal
+    print("Inputs collected:")
+    print("llm_prompt =", app.user_input)
+    print("selected_file_path =", app.selected_file_path)
+    file_path = app.selected_file_path
+    #user_input = app.user_input
+
+    # Loop Until At Least One Input Collected
+    while file_path == "":
+        app = InputApp()
+        app.mainloop()
+        print("Inputs collected:")
+        print("llm_prompt =", app.user_input)
+        print("selected_file_path =", app.selected_file_path)
+        file_path = app.selected_file_path
+        #user_input = app.user_input
+
     try:
 
         pil_image = Image.open(file_path)
@@ -126,55 +130,6 @@ async def vision_llm_func(state: MyState) -> MyState:
 
     image_b64= convert_to_base64(pil_image)
 
-    # Create Vision Agent Chain
-    vision_llm_chat = ChatOllama(
-        model="gemma3:12b",
-        temperature=0.9,
-    )
-
-    prompt_func_runnable = RunnableLambda(prompt_func)
-    chain = prompt_func_runnable | vision_llm_chat
-
-
-    # Get Agent Chain Result
-    vision_result = chain.invoke({
-        "text": state["promptvision"],
-        "image": image_b64,
-    })
-
-    print("\n")
-    print("ImageLLM Output:")
-    print("\n")
-    print(vision_result.content)
-    print("\n")
-
-    state["vision"] = vision_result.content
-
-    return state
-
-def code_llm_func(state):
-
-    # Create Code Agent
-    code_llm_chat = ChatOllama(
-        model="hf.co/mradermacher/BlenderLLM-GGUF:F16",
-        temperature=0.9,
-    )
-
-    # Get Agent Result
-    code_llm_chat_input = state["userinput"]+"\n"+state["vision"]+"\n"+state["code"]+"\n"+state["promptcode"]
-    code_result = code_llm_chat.invoke(code_llm_chat_input)
-
-    print("\n")
-    print("CodeLLM Output:")
-    print("\n")
-    print(code_result.content)
-    print("\n")
-    state["code"] = code_result.content
-
-    return state
-
-
-async def tools_llm_func(state):
 
     # Get MCP-Tools From Server
     client = MultiServerMCPClient(
@@ -195,99 +150,59 @@ async def tools_llm_func(state):
 
     # Create Tool Agent
     tools_llm_chat = ChatOllama(
-        model="qwen3:30b",
-        temperature=0.5,
+        model="llama4",
+        temperature=0.9,
     )
     agent = create_react_agent(
         model = tools_llm_chat,
         tools=tools
     )
 
-    # Get Agent Result
+    # Create Full prompt
+    full_prompt = f"""
+        You are an expert in image analysis, 3D modeling, and Blender scripting.
+
+        Step 1: Provide a detailed and extensive description of the image. Describe every object in the picture accurately. Describe the shape of the lanscape elements.
+        Step 2: Create Blender Code of the described Landscape. Create every Object and Shape with math.
+        Step 3: Use available tools to execute the code. If errors happen, fix and retry.
+    """
+    
+    # Run Agent With Evrything
     try:
-        tool_result = await agent.ainvoke(
-            {"messages": [{"role": "user", "content": "Execute the following Blender Python Code:\n"+state["code"]}]}
-        )
-
+        result = await agent.ainvoke({
+            "messages": [
+                {"role": "system", "content": full_prompt},
+                {"role": "user", "content": f"[IMAGE_BASE64:{image_b64}"}
+            ]
+        })
+        print("Agent Output:\n")
+        print(result)
     except Exception as e:
-        print(f"Error in main execution: {e}")
+        print(f"Error in unified agent: {e}")
 
-    # Make Viewport Screenshot
-    screenshot_code = """import bpy
+
+    # Make A Screenshot          
+        make_screenshot = """  
+        import bpy
         bpy.context.scene.render.filepath = "/home/student-rossmaier/Bachelorthesis/agents/render.png"
         bpy.ops.render.render(write_still=True)
         """
+
+    # Run Agent For Screenshot
     try:
-        tool_result = await agent.ainvoke(
-            {"messages": [{"role": "user", "content": "Execute the following Blender Python Code:\n"+screenshot_code+
-            "\nIf it does not work try to fix and reexecute it."}]}
-        )
+        result = await agent.ainvoke({
+            "messages": [
+                {"role": "system", "content": make_screenshot},
+            ]
+        })
+        print("Agent Output:\n")
+        print(result)
     except Exception as e:
-        print(f"Error in main execution: {e}")
+        print(f"Error in unified agent: {e}")
 
-
-    state["error"] = tool_result
-
-    return state
-
-
-async def main():
-
-    # Open Input Window
-    app = InputApp()
-    app.mainloop()
-
-    # Output Collected Inputs In Terminal
-    print("Inputs collected:")
-    print("llm_prompt =", app.user_input)
-    print("selected_file_path =", app.selected_file_path)
-    file_path = app.selected_file_path
-    user_input = app.user_input
-
-    # Loop Until At Least One Input Collected
-    while file_path == "" and user_input == "":
-        app = InputApp()
-        app.mainloop()
-        print("Inputs collected:")
-        print("llm_prompt =", app.user_input)
-        print("selected_file_path =", app.selected_file_path)
-        file_path = app.selected_file_path
-        user_input = app.user_input
-
-
-    # Create StateGraph With Nodes And Edges
-    graph = StateGraph(MyState)
-    graph.add_node("vision_llm", vision_llm_func)
-    graph.add_node("code_llm", code_llm_func)
-    graph.add_node("tools_llm", tools_llm_func)
-    graph.add_edge(START,"vision_llm")
-    graph.add_edge("vision_llm", "code_llm")
-    graph.add_edge("code_llm", "tools_llm")
-    graph.add_edge("tools_llm",END)
-    graph = graph.compile()
-
-    # Get StateGraph Output State
-    prompt_vision = """Provide a detailed and extensive description of the image.
-        Describe every object in the picture accurately.
-        Describe the shape of the lanscape elements."""
-    prompt_code = "Create Blender Code of the described Landscape. Create every Object and Shape with math."
-    input_state = MyState(userinput=user_input,filepath=file_path,promptcode=prompt_code,promptvision=prompt_vision,code="")
-    output_state = await graph.ainvoke(input_state)
-    print(output_state)
 
     # Prepare Rendering Loop
-    file_path_loop = "/home/student-rossmaier/Bachelorthesis/agents/render.png"
-    prompt_vision_loop = "How does image compare to the the discription? What are the differences?"
-    prompt_code_loop = """The new image is the result of the provided Blender Code.
-        Improve the Blender Code to minimize the differences.
-        Also look at the errors during the first execution and try to avoid them.
-        """
-    output_state["filepath"] = file_path_loop
-    output_state["promptvision"] = output_state["userinput"]+output_state["vision"]+prompt_vision_loop
-    output_state["promptcode"] = prompt_code_loop
-
-    input_state = output_state
-    print(input_state)
+    file_path = "/home/student-rossmaier/Bachelorthesis/agents/render.png"
 
     # Start Rendering Loop
     for i in range(4):
@@ -296,9 +211,88 @@ async def main():
         print(f"+ Rendering Loop iteration: {str(i+2)} +")
         print(f"++++++++++++++++++++++++++++++++++++++")
         print("\n")
-        output_state = await graph.ainvoke(input_state)
-        print(output_state)
-        input_state = output_state
+
+        try:
+
+            pil_image = Image.open(file_path)
+
+        except Exception as e:
+            print(f"Error in main execution: {e}")
+
+
+        image_b64_2= convert_to_base64(pil_image)
+
+
+        # Get MCP-Tools From Server
+        client = MultiServerMCPClient(
+            {
+                "blender_mcp": {
+                    "command": "firejail",
+                    "args": ["uvx", "blender-mcp", "--private", "--net=none", "--caps.drop=all", "--seccomp", "--private-dev", "--hostname=sandbox"],
+                    "transport": "stdio",
+                }
+            }
+        )
+        try:
+
+            tools = await client.get_tools()
+
+        except Exception as e:
+            print(f"Error in main execution: {e}")
+
+        # Create Tool Agent
+        tools_llm_chat = ChatOllama(
+            model="llama4",
+            temperature=0.9,
+        )
+        agent = create_react_agent(
+            model = tools_llm_chat,
+            tools=tools
+        )
+
+        # Create Full prompt
+        full_prompt = f"""
+            You are an expert in image analysis, 3D modeling, and Blender scripting.
+
+            Step 1: How does first image compare to the the second one? What are the differences?
+            Step 2: The second image is the result of the provided Blender Code. Improve the Blender Code to minimize the differences. Also look at the errors during the first execution and try to avoid them.
+            Step 3: Use available tools to execute the code. If errors happen, fix and retry.
+        """
+        
+        # Run Agent With Evrything
+        try:
+            result = await agent.ainvoke({
+                "messages": [
+                    {"role": "system", "content": full_prompt},
+                    {"role": "user", "content": f"[IMAGE_BASE64:{image_b64}"},
+                    {"role": "user", "content": f"[IMAGE_BASE64:{image_b64_2}"}
+                ]
+            })
+            print("Agent Output:\n")
+            print(result)
+        except Exception as e:
+            print(f"Error in unified agent: {e}")
+
+
+        # Make A Screenshot          
+            make_screenshot = """  
+            import bpy
+            bpy.context.scene.render.filepath = "/home/student-rossmaier/Bachelorthesis/agents/render.png"
+            bpy.ops.render.render(write_still=True)
+            """
+
+        # Run Agent For Screenshot
+        try:
+            result = await agent.ainvoke({
+                "messages": [
+                    {"role": "system", "content": make_screenshot},
+                ]
+            })
+            print("Agent Output:\n")
+            print(result)
+        except Exception as e:
+            print(f"Error in unified agent: {e}")
+
 
 
 if __name__ == "__main__":
