@@ -107,7 +107,7 @@ def convert_to_base64(pil_image):
 
 async def llm_func(state):
 
-    API_KEY = "AIzaSyAhO1haFQP85vVbmA8jUkEO2GaNBm8S6Qw"
+    API_KEY = ""
 
     file_path_2 = state["filepath_2"]
 
