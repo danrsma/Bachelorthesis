@@ -126,7 +126,7 @@ async def vision_llm_func(state: MyState) -> MyState:
 
     # Create Vision Agent Chain
     vision_llm_chat = ChatOllama(
-        model="gemma3:12b",
+        model="llama4",
         temperature=0.5,
     )
 
