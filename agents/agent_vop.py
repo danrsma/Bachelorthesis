@@ -4,7 +4,6 @@ from langchain_mcp_adapters.client import MultiServerMCPClient
 from langchain_core.runnables import RunnableLambda
 from langgraph.prebuilt import create_react_agent
 from langgraph.graph import StateGraph, START, END
-from langchain_google_genai import ChatGoogleGenerativeAI
 
 from typing import TypedDict
 import base64
@@ -128,7 +127,7 @@ async def vision_llm_func(state: MyState) -> MyState:
 
     # Create Vision Agent Chain
     vision_llm_chat = ChatOllama(
-        model="gemma3:4b",
+        model="gemma3:12b",
         temperature=0.5,
     )
 
@@ -180,7 +179,7 @@ async def plan_llm_func(state):
 
     # Create Agent
     tools_llm_chat = ChatOllama(
-        model="qwen3:8b",
+        model="llama4",
         temperature=0.5,
     )
     agent = create_react_agent(
