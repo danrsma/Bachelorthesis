@@ -73,6 +73,7 @@ class MyState(TypedDict):
     filepath_1: str
     filepath_2: str
     userinput: str
+    vision: str
 
 
 def prompt_func(data):
@@ -155,9 +156,9 @@ async def llm_func(state):
             os.environ["GOOGLE_API_KEY"] = API_KEY
         
         llm_chat = ChatGoogleGenerativeAI(
-            model="gemini-2.5-flash-lite",
+            model="gemini-2.5-flash",
             temperature=0,
-            max_tokens=None,
+            max_tokens=10000,
             timeout=None,
             max_retries=2,
             # other params...
@@ -186,6 +187,7 @@ async def llm_func(state):
         print("\n")
         print(vision_result.content)
         print("\n")
+        state["vision"] = str(vision_result.content)
 
         # Prepare React Agent
         agent = create_react_agent(
@@ -249,19 +251,6 @@ async def llm_func(state):
     
     else:
         # Get Image Data
-        file_path_1 = state["filepath_1"]
-
-        try:
-
-            pil_image = Image.open(file_path_1)
-
-        except Exception as e:
-            print(f"Error in main execution: {e}")
-
-
-        image_b64_1= convert_to_base64(pil_image)
-
-        
         try:
             pil_image = Image.open(file_path_2)
 
@@ -299,9 +288,9 @@ async def llm_func(state):
             os.environ["GOOGLE_API_KEY"] = API_KEY
         
         llm_chat = ChatGoogleGenerativeAI(
-            model="gemini-2.5-flash-lite",
+            model="gemini-2.5-flash",
             temperature=0,
-            max_tokens=None,
+            max_tokens=10000,
             timeout=None,
             max_retries=2,
             # other params...
@@ -314,13 +303,12 @@ async def llm_func(state):
         # Create Full Prompt
         full_prompt = f"""
             You are an expert in image analysis, 3D modeling, and Blender scripting. 
-            Step 1: Provide a detailed and extensive comparison of the two images.
+            Step 1: Provide a detailed and extensive comparison of the image and the discription.
         """
-
+        
         # Get Agent Chain Result
         vision_result = chain.invoke({
-            "text": full_prompt,
-            "image": image_b64_1,
+            "text": full_prompt+state["vision"],
             "image": image_b64_2,
         })
 
@@ -424,7 +412,7 @@ async def main():
     graph = graph.compile()
 
     # Get StateGraph Output State
-    input_state = MyState(filepath_1=file_path,filepath_2="",userinput=user_input)
+    input_state = MyState(filepath_1=file_path,filepath_2="",userinput=user_input,vision="")
     output_state = await graph.ainvoke(input_state, config={"recursion_limit": 150})
 
 

@@ -159,8 +159,8 @@ async def plan_llm_func(state):
     client = MultiServerMCPClient(
         {
             "blender_mcp": {
-                "command": "uvx",
-                "args": ["blender-mcp"],
+                "command": "firejail",
+                "args": ["uvx", "blender-mcp", "--private", "--net=none", "--caps.drop=all", "--seccomp", "--private-dev", "--hostname=sandbox"],
                 "transport": "stdio",
             }
         }

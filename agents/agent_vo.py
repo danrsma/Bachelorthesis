@@ -156,7 +156,7 @@ def code_llm_func(state):
 
     # Create Code Agent
     code_llm_chat = ChatOllama(
-        model="hf.co/mradermacher/BlenderLLM-GGUF:F16",
+        model="hf.co/mradermacher/BlenderLLM-GGUF:Q8_0",
         temperature=0.9,
     )
 
@@ -180,8 +180,8 @@ async def tools_llm_func(state):
     client = MultiServerMCPClient(
         {
             "blender_mcp": {
-                "command": "firejail",
-                "args": ["uvx", "blender-mcp", "--private", "--net=none", "--caps.drop=all", "--seccomp", "--private-dev", "--hostname=sandbox"],
+                "command": "uvx",
+                "args": ["blender-mcp"],
                 "transport": "stdio",
             }
         }
@@ -195,8 +195,8 @@ async def tools_llm_func(state):
 
     # Create Tool Agent
     tools_llm_chat = ChatOllama(
-        model="qwen3:30b",
-        temperature=0.5,
+        model="qwen3:8b",
+        temperature=0.0,
     )
     agent = create_react_agent(
         model = tools_llm_chat,
@@ -215,8 +215,24 @@ async def tools_llm_func(state):
     # Make Viewport Screenshot
     screenshot_code = """
         import bpy
-        bpy.context.scene.render.filepath = "/home/student-rossmaier/Bachelorthesis/agents/render.png"
+
+        # Create a new camera object
+        cam_data = bpy.data.cameras.new(name="MyCamera")
+        cam_object = bpy.data.objects.new("MyCamera", cam_data)
+
+        # Set camera location and rotation
+        cam_object.location = (0, -10, 7)
+        cam_object.rotation_euler = (1.1, 0, 0)
+
+        # Link the camera to the current scene
+        bpy.context.collection.objects.link(cam_object)
+
+        # Set the new camera as the active camera
+        bpy.context.scene.camera = cam_object
+
+        bpy.context.scene.render.filepath = "C:\\Users\\cross\\Desktop\\Render.png"
         bpy.ops.render.render(write_still=True)
+
         """
     try:
         tool_result = await agent.ainvoke(
