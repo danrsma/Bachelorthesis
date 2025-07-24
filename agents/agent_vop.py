@@ -12,7 +12,6 @@ from PIL import Image
 import asyncio
 import tkinter as tk
 from tkinter import filedialog
-import os
 
 
 class InputApp(tk.Tk):
