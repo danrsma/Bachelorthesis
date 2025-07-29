@@ -4,6 +4,7 @@ from langchain_mcp_adapters.client import MultiServerMCPClient
 from langchain_core.runnables import RunnableLambda
 from langgraph.prebuilt import create_react_agent
 from langgraph.graph import StateGraph, START, END
+from langchain_google_genai import ChatGoogleGenerativeAI
 
 from typing import TypedDict
 import base64
@@ -12,6 +13,7 @@ from PIL import Image
 import asyncio
 import tkinter as tk
 from tkinter import filedialog
+import os
 
 
 class InputApp(tk.Tk):
@@ -126,7 +128,7 @@ async def vision_llm_func(state: MyState) -> MyState:
 
     # Create Vision Agent Chain
     vision_llm_chat = ChatOllama(
-        model="llama4",
+        model="llama4:latest",
         temperature=0.5,
     )
 
@@ -157,8 +159,8 @@ async def plan_llm_func(state):
     client = MultiServerMCPClient(
         {
             "blender_mcp": {
-                "command": "firejail",
-                "args": ["uvx", "blender-mcp", "--private", "--net=none", "--caps.drop=all", "--seccomp", "--private-dev", "--hostname=sandbox"],
+                "command": "uvx",
+                "args": ["blender-mcp"],
                 "transport": "stdio",
             }
         }
@@ -178,7 +180,7 @@ async def plan_llm_func(state):
 
     # Create Agent
     tools_llm_chat = ChatOllama(
-        model="llama4",
+        model="llama4:latest",
         temperature=0.5,
     )
     agent = create_react_agent(
@@ -207,7 +209,22 @@ async def plan_llm_func(state):
     # Make Viewport Screenshot
     screenshot_code = """
         import bpy
-        bpy.context.scene.render.filepath = "/home/student-rossmaier/Bachelorthesis/agents/render.png"
+
+        # Create a new camera object
+        cam_data = bpy.data.cameras.new(name="MyCamera")
+        cam_object = bpy.data.objects.new("MyCamera", cam_data)
+
+        # Set camera location and rotation
+        cam_object.location = (0, -10, 7)
+        cam_object.rotation_euler = (1.1, 0, 0)
+
+        # Link the camera to the current scene
+        bpy.context.collection.objects.link(cam_object)
+
+        # Set the new camera as the active camera
+        bpy.context.scene.camera = cam_object
+
+        bpy.context.scene.render.filepath = "C:\\Users\\cross\\Desktop\\Render.png"
         bpy.ops.render.render(write_still=True)
         """
     try:
@@ -256,22 +273,25 @@ async def main():
     graph = graph.compile()
 
     # Get StateGraph Output State
-    prompt_vision = """Provide a detailed and extensive description of the image.
-        Describe every object in the picture accurately.
-        Describe the shape of the lanscape elements."""
-    prompt_plan = """List all available tools. Create a plan to recreate the described Landscape in 
-        Blender, with Blender Code or Polyhaven assets, using the available tools.
-        Execute the plan"""
+    prompt_vision = """You are an expert in image analysis, 3D modeling, and Blender scripting. 
+            Step 1: Provide a detailed and extensive description of the image."""
+
+    prompt_plan = """You are an expert in image analysis, 3D modeling, and Blender scripting.
+            Step 2: Recreate the Scene with colors or textures in Blender using Polyhaven Assets and Blender Code Execution."""
+    
+
     input_state = MyState(userinput=user_input,filepath=file_path,promptplan=prompt_plan,promptvision=prompt_vision,plan="")
     output_state = await graph.ainvoke(input_state)
     print(output_state)
 
     # Prepare Rendering Loop
     file_path_loop = "/home/student-rossmaier/Bachelorthesis/agents/render.png"
-    prompt_vision_loop = "How does image compare to the the discription? What are the differences?"
-    prompt_plan_loop = """The new image is the result of the provided plan.
-        Improve the plan to minimize the differences.
-        """
+    
+    prompt_vision_loop = """You are an expert in image analysis, 3D modeling, and Blender scripting. 
+            Step 1: Provide a detailed and extensive comparison of the image and the discription."""
+    prompt_vision_loop = """You are an expert in image analysis, 3D modeling, and Blender scripting. 
+            Step 2: Improve the Scene in Blender to match the description."""
+ 
     output_state["filepath"] = file_path_loop
     output_state["promptvision"] = output_state["userinput"]+output_state["vision"]+prompt_vision_loop
     output_state["promptplan"] = prompt_plan_loop
