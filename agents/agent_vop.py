@@ -128,7 +128,8 @@ async def vision_llm_func(state: MyState) -> MyState:
 
     # Create Vision Agent Chain
     vision_llm_chat = ChatOllama(
-        model="llama4:latest",
+        model="llama4:maverick",
+        base_url="http://vci-gpu2.informatik.uni-bonn.de:11434/api/generate",
         temperature=0.5,
     )
 
@@ -180,7 +181,8 @@ async def plan_llm_func(state):
 
     # Create Agent
     tools_llm_chat = ChatOllama(
-        model="llama4:latest",
+        model="llama4:maverick",
+        base_url="http://vci-gpu2.informatik.uni-bonn.de:11434/api/generate", 
         temperature=0.5,
     )
     agent = create_react_agent(
