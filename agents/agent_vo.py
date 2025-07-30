@@ -177,11 +177,22 @@ def code_llm_func(state):
 async def tools_llm_func(state):
 
     # Get MCP-Tools From Server
+    '''
     client = MultiServerMCPClient(
         {
             "blender_mcp": {
                 "command": "firejail",
                 "args": ["uvx", "blender-mcp", "--private", "--net=none", "--caps.drop=all", "--seccomp", "--private-dev", "--hostname=sandbox"],
+                "transport": "stdio",
+            }
+        }
+    )
+    '''
+    client = MultiServerMCPClient(
+        {
+            "blender_mcp": {
+                "command": "uvx",
+                "args": ["blender-mcp"],
                 "transport": "stdio",
             }
         }
@@ -293,7 +304,7 @@ async def main():
     print(output_state)
 
     # Prepare Rendering Loop
-    file_path_loop = "/home/student-rossmaier/Bachelorthesis/agents/render.png"
+    file_path_loop = "C:\\Users\\cross\\Desktop\\Render.png"
     prompt_vision_loop = "How does image compare to the the discription? What are the differences?"
     prompt_code_loop = """The new image is the result of the provided Blender Code.
         Improve the Blender Code to minimize the differences.

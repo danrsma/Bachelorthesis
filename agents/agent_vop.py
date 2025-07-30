@@ -13,7 +13,6 @@ from PIL import Image
 import asyncio
 import tkinter as tk
 from tkinter import filedialog
-import os
 
 
 class InputApp(tk.Tk):
@@ -72,7 +71,6 @@ class MyState(TypedDict):
 
     # Pass States Through Stategraph
     vision: str
-    plan: str
     filepath: str
     userinput: str
     promptvision: str
@@ -113,9 +111,33 @@ async def vision_llm_func(state: MyState) -> MyState:
 
     # Get Image Data
     file_path = state["filepath"]
+    
+    
     if file_path == "":
-        state["vision"] = ""
+        # Create Vision Agent Chain
+        vision_llm_chat = ChatOllama(
+            model="gemma3:27b",
+            base_url="http://localhost:11434",
+            temperature=0.5,
+        )
+
+        # Get Agent Result
+        prompt = """You are an expert in image analysis, 3D modeling, and Blender scripting. 
+            Provide a detailed and extensive description of the scene and list all assets including hdri, models and textures you will need to create it."""+state["userinput"]
+        vision_result = vision_llm_chat.invoke(prompt)
+
+        # Ouput Image LLM
+        print("\n")
+        print("ImageLLM Output:")
+        print("\n")
+        print(vision_result.content)
+        print("\n")
+
+        state["vision"] = vision_result.content
         return state
+    
+    
+    # Open Image
     try:
 
         pil_image = Image.open(file_path)
@@ -128,8 +150,8 @@ async def vision_llm_func(state: MyState) -> MyState:
 
     # Create Vision Agent Chain
     vision_llm_chat = ChatOllama(
-        model="llama4:maverick",
-        base_url="http://vci-gpu2.informatik.uni-bonn.de:11434/api/generate",
+        model="gemma3:27b",
+        base_url="http://localhost:11434",
         temperature=0.5,
     )
 
@@ -181,33 +203,67 @@ async def plan_llm_func(state):
 
     # Create Agent
     tools_llm_chat = ChatOllama(
-        model="llama4:maverick",
-        base_url="http://vci-gpu2.informatik.uni-bonn.de:11434/api/generate", 
+        model="qwen3:235b",
+        base_url="http://localhost:11434", 
         temperature=0.5,
     )
     agent = create_react_agent(
         model = tools_llm_chat,
         tools=tools
     )
+    
+
+    # Create Plan
+    prompt = """You are tasked with constructing a relational bipartite graph for 3D Scene based on the provided description and assetlist.
+        1.Review the Scene description and the list of assets.
+        2.Determine the spatial and contextual relionships needed to accurateley represent the scene's layout. Consider Relationships like:
+        -Proximity: A constraint enforcing the closeness of two objects, e.g., a chair near a table.
+        -Direction: The angle of one object is targeting at the other.
+        -Alignment: Ensuring objects align along a common axis, e.g., paintings aligned vertically on a wall.
+        -Symmetry: Mirroring objects along an axis, e.g., symmetrical placement of lamps on either side of a bed.
+        -Overlap: One object partially covering another, creating depth, e.g., a rug under a coffee table.
+        -Parallelism: Objects parallel to each other, suggesting direction, e.g., parallel rows of seats in a theater.
+        -Perpendicularity: Objects intersecting at a right angle, e.g., a bookshelf perpendicular to a desk.
+        -Hierarchy: Indicating a list of objects follow a certain order of size / volumns.
+        -Rotation: a list of objects rotate a cirtain point, e.g., rotating chairs around a meeting table.
+        -Repetition: Repeating patterns for rhythm or emphasis, e.g., a sequence oft street lights.
+        -Scaling: Adjusting object sizes for depth or focus, e.g., smaller background trees to create depth perception
+        Construct the relational bipartite graph 'G(s)=(A,R,E)' where:
+        -A represents the set of assets.
+        -R represents the set of Relations as nodes.
+        -E represents the edges connecting a relation node to a subset of assets 'E(r)' in the Scene that satisfies this relation.
+        Output your findings in a structured Format:
+        List of relation nodes 'R' with their types and descriptions.
+        Edges 'E' that link assests to their corresponding relation nodes.
+        This process will guide the Arrangement of assets in the 3D Scene, ensuring they are positioned scaled and oriented correctly according to the description.
+        """+state["vision"]
+    plan_result = tools_llm_chat.invoke(prompt)
+
 
     # Output PlanLLM
     print("\n")
     print("PlanLLM Output:")
     print("\n")
+    print(plan_result.content)
+    print("\n")
+    
+    agent = create_react_agent(
+        model = tools_llm_chat,
+        tools=tools
+    )
 
-    plan_llm_chat_input = state["userinput"]+"\n"+state["vision"]+"\n"+state["plan"]+"\n"+state["promptplan"]
+    plan_llm_chat_input = plan_result.content+"\n"+state["promptplan"]+"\n"+state["vision"]
+
     # Get Agent Result
     try:
-        plan_result = await agent.ainvoke(
+        await agent.ainvoke(
             {"messages": [{"role": "user", "content": plan_llm_chat_input}]}
         )
 
     except Exception as e:
         print(f"Error in main execution: {e}")
 
-
-    state["plan"] = plan_result
-
+    
     # Make Viewport Screenshot
     screenshot_code = """
         import bpy
@@ -234,6 +290,9 @@ async def plan_llm_func(state):
             {"messages": [{"role": "user", "content": "Execute the following Blender Python Code:\n"+screenshot_code+
             "\nIf it does not work try to fix and reexecute it."}]}
         )
+        print("Screenshot taken.")
+        print("\n")
+
     except Exception as e:
         print(f"Error in main execution: {e}")
 
@@ -276,30 +335,32 @@ async def main():
 
     # Get StateGraph Output State
     prompt_vision = """You are an expert in image analysis, 3D modeling, and Blender scripting. 
-            Step 1: Provide a detailed and extensive description of the image."""
+            Provide a detailed and extensive description of the image and list all assets including hdri, models and textures you will need to create it."""
 
     prompt_plan = """You are an expert in image analysis, 3D modeling, and Blender scripting.
-            Step 2: Recreate the Scene with colors or textures in Blender using Polyhaven Assets and Blender Code Execution."""
+        Recreate the Scene with colors or textures in Blender using Polyhaven Assets and Blender Code Execution with the provided graph to match the description.
+        """
     
 
-    input_state = MyState(userinput=user_input,filepath=file_path,promptplan=prompt_plan,promptvision=prompt_vision,plan="")
+    input_state = MyState(userinput=user_input,filepath=file_path,promptplan=prompt_plan,promptvision=prompt_vision)
     output_state = await graph.ainvoke(input_state)
-    print(output_state)
 
     # Prepare Rendering Loop
-    file_path_loop = "/home/student-rossmaier/Bachelorthesis/agents/render.png"
+    file_path_loop = "C:\\Users\\cross\\Desktop\\Render.png"
     
     prompt_vision_loop = """You are an expert in image analysis, 3D modeling, and Blender scripting. 
-            Step 1: Provide a detailed and extensive comparison of the image and the discription."""
-    prompt_vision_loop = """You are an expert in image analysis, 3D modeling, and Blender scripting. 
-            Step 2: Improve the Scene in Blender to match the description."""
+            Provide a detailed comparison of the image and the discription.
+            Mark out all the differences. Provide a better discription and list of assets.
+            """
+    
+    prompt_plan_loop = """You are an expert in image analysis, 3D modeling, and Blender scripting. 
+            Improve the Scene in Blender to better match the graph in the provided plan."""
  
     output_state["filepath"] = file_path_loop
     output_state["promptvision"] = output_state["userinput"]+output_state["vision"]+prompt_vision_loop
     output_state["promptplan"] = prompt_plan_loop
 
     input_state = output_state
-    print(input_state)
 
     # Start Rendering Loop
     for i in range(4):
