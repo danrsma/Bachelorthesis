@@ -1,10 +1,10 @@
 from langchain_core.messages import HumanMessage
+from langchain_core.messages import AIMessage
 from langchain_ollama import ChatOllama
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from langchain_core.runnables import RunnableLambda
 from langgraph.prebuilt import create_react_agent
 from langgraph.graph import StateGraph, START, END
-from langchain_google_genai import ChatGoogleGenerativeAI
 
 from typing import TypedDict
 import base64
@@ -13,6 +13,7 @@ from PIL import Image
 import asyncio
 import tkinter as tk
 from tkinter import filedialog
+import re
 
 
 class InputApp(tk.Tk):
@@ -71,10 +72,11 @@ class MyState(TypedDict):
 
     # Pass States Through Stategraph
     vision: str
+    code: str
+    plan: str
     filepath: str
     userinput: str
-    promptvision: str
-    promptplan: str
+    error: str
 
 
 def prompt_func(data):
@@ -111,12 +113,10 @@ async def vision_llm_func(state: MyState) -> MyState:
 
     # Get Image Data
     file_path = state["filepath"]
-    
-    
     if file_path == "":
         # Create Vision Agent Chain
         vision_llm_chat = ChatOllama(
-            model="gemma3:27b",
+            model="llama4:maverick",
             base_url="http://localhost:11434",
             temperature=0.5,
         )
@@ -136,8 +136,6 @@ async def vision_llm_func(state: MyState) -> MyState:
         state["vision"] = vision_result.content
         return state
     
-    
-    # Open Image
     try:
 
         pil_image = Image.open(file_path)
@@ -150,22 +148,66 @@ async def vision_llm_func(state: MyState) -> MyState:
 
     # Create Vision Agent Chain
     vision_llm_chat = ChatOllama(
-        model="gemma3:27b",
-        base_url="http://localhost:11434",
-        temperature=0.5,
+        model="llama4:maverick",
+        temperature=0.9,
     )
 
     prompt_func_runnable = RunnableLambda(prompt_func)
     chain = prompt_func_runnable | vision_llm_chat
 
+    prompt_vision = """You are an expert in image analysis, 3D modeling, and Blender scripting. 
+        Provide a detailed and extensive description of the image and list all assets including hdri, models and textures you will need to create it."""
 
     # Get Agent Chain Result
     vision_result = chain.invoke({
-        "text": state["promptvision"],
+        "text": prompt_vision,
         "image": image_b64,
     })
 
-    # Ouput Image LLM
+    print("\n")
+    print("ImageLLM Output:")
+    print("\n")
+    print(vision_result.content)
+    print("\n")
+
+    state["vision"] = vision_result.content
+
+    return state
+
+async def vision_llm_func_feedback(state: MyState) -> MyState:
+
+    # Get Image Data
+    file_path = state["filepath"]
+    
+    try:
+
+        pil_image = Image.open(file_path)
+
+    except Exception as e:
+        print(f"Error in main execution: {e}")
+
+
+    image_b64= convert_to_base64(pil_image)
+
+    # Create Vision Agent Chain
+    vision_llm_chat = ChatOllama(
+        model="llama4:maverick",
+        temperature=0.9,
+    )
+
+    prompt_func_runnable = RunnableLambda(prompt_func)
+    chain = prompt_func_runnable | vision_llm_chat
+
+    prompt_vision_loop = """You are an expert in image analysis, 3D modeling, and Blender scripting. 
+            Provide a detailed comparison of the image and the discription.
+            Mark out all the differences.
+            """+state["vision"]
+    # Get Agent Chain Result
+    vision_result = chain.invoke({
+        "text": prompt_vision_loop,
+        "image": image_b64,
+    })
+
     print("\n")
     print("ImageLLM Output:")
     print("\n")
@@ -178,40 +220,12 @@ async def vision_llm_func(state: MyState) -> MyState:
 
 async def plan_llm_func(state):
 
-    # Get MCP-Tools From Server
-    client = MultiServerMCPClient(
-        {
-            "blender_mcp": {
-                "command": "uvx",
-                "args": ["blender-mcp"],
-                "transport": "stdio",
-            }
-        }
+    # Create Plan Agent
+    plan_llm_chat = ChatOllama(
+        model="llama4:maverick",
+        temperature=0.0,
     )
-    try:
 
-        tools = await client.get_tools()
-
-    except Exception as e:
-        print(f"Error in main execution: {e}")
-
-    # Filter The Tools
-    tools = [
-        t for t in tools
-        if t.name not in {"get_hyper3d_status", "get_sketchfab_status", "search_sketchfab_models","download_sketchfab_models","generate_hyper3d_model_via_text","generate_hyper3d_model_via_images","poll_rodin_job_status","import_generated_asset"}
-    ]
-
-    # Create Agent
-    tools_llm_chat = ChatOllama(
-        model="qwen3:235b",
-        base_url="http://localhost:11434", 
-        temperature=0.5,
-    )
-    agent = create_react_agent(
-        model = tools_llm_chat,
-        tools=tools
-    )
-    
 
     # Create Plan
     prompt = """You are tasked with constructing a relational bipartite graph for 3D Scene based on the provided description and assetlist.
@@ -237,33 +251,124 @@ async def plan_llm_func(state):
         Edges 'E' that link assests to their corresponding relation nodes.
         This process will guide the Arrangement of assets in the 3D Scene, ensuring they are positioned scaled and oriented correctly according to the description.
         """+state["vision"]
-    plan_result = tools_llm_chat.invoke(prompt)
 
+    plan = plan_llm_chat.invoke(prompt)
+    filtered_plan = re.sub(r'<think>.*?</think>\s*', '', plan.content, flags=re.DOTALL)
 
     # Output PlanLLM
     print("\n")
     print("PlanLLM Output:")
     print("\n")
-    print(plan_result.content)
+    print(filtered_plan)
     print("\n")
+
+    state["plan"] = filtered_plan
+    return state
+
+def code_llm_func(state):
+
+    # Create Code Agent
+    code_llm_chat = ChatOllama(
+        model="llama4:maverick",
+        temperature=0.9,
+    )
+
+
+    # Get Agent Result
+    prompt_code = """You are an expert in image analysis, 3D modeling, and Blender scripting. 
+            Implement the provided graph to create the described Landscape in Blender. Create every Object and Shape with math."""
+    code_llm_chat_input = state["plan"]+"\n"+prompt_code
+    code_result = code_llm_chat.invoke(code_llm_chat_input)
+
+    print("\n")
+    print("CodeLLM Output:")
+    print("\n")
+    print(code_result.content)
+    print("\n")
+    state["code"] = code_result.content
+
+    return state
+
+def code_llm_func_feedback(state):
+
+    # Create Code Agent
+    code_llm_chat = ChatOllama(
+        model="qwen3:235b",
+        temperature=0.9,
+    )
+
+
+    # Get Agent Result
+    prompt_code = """You are an expert in image analysis, 3D modeling, and Blender scripting. 
+            Implement the provided graph to create the described Landscape in Blender. Create every Object and Shape with math.
+            Furthermore try to minimize the following differences and error"""
+    code_llm_chat_input = state["plan"]+"\n"+prompt_code+state["vision"]+state["error"]
+    code_result = code_llm_chat.invoke(code_llm_chat_input)
+
+    print("\n")
+    print("CodeLLM Output:")
+    print("\n")
+    print(code_result.content)
+    print("\n")
+    state["code"] = code_result.content
+
+    return state
+
+
+async def tools_llm_func(state):
+
+    # Get MCP-Tools From Server
+    client = MultiServerMCPClient(
+        {
+            "blender_mcp": {
+                "command": "uvx",
+                "args": ["blender-mcp"],
+                "transport": "stdio",
+            }
+        }
+    )
+    try:
+
+        tools = await client.get_tools()
+
+    except Exception as e:
+        print(f"Error in main execution: {e}")
+
+    # Create Llm Chat
+    tools_llm_chat = ChatOllama(
+        model="qwen3:235b",
+        temperature=0.0,
+    )
     
+    # Filter The Tools
+    tools = [
+        t for t in tools
+        if t.name not in {"get_hyper3d_status", "get_sketchfab_status", "search_sketchfab_models","download_sketchfab_models","generate_hyper3d_model_via_text","generate_hyper3d_model_via_images","poll_rodin_job_status","import_generated_asset"}
+    ]
+    
+    #Create Tool Agent
     agent = create_react_agent(
         model = tools_llm_chat,
         tools=tools
     )
 
-    plan_llm_chat_input = plan_result.content+"\n"+state["promptplan"]+"\n"+state["vision"]
 
     # Get Agent Result
     try:
-        await agent.ainvoke(
-            {"messages": [{"role": "user", "content": plan_llm_chat_input}]}
+        tool_result = await agent.ainvoke(
+            {"messages": [{"role": "user", "content": "Execute the following Blender Python Code:\n"+state["code"]+
+            "\nIf it does not work try to recreate this scene.\n"+state["vision"]+
+            "\nTry to add assets from polyhaven to improve the scene use this graph to add the assets correctly.\n"+state["plan"]
+            }]}
         )
 
     except Exception as e:
         print(f"Error in main execution: {e}")
 
-    
+    ai_messages = [m for m in tool_result["messages"] if isinstance(m, AIMessage)]
+    full_output = "\n\n".join(m.content for m in ai_messages)
+    filtered_output = re.sub(r'<think>.*?</think>\s*', '', full_output, flags=re.DOTALL)
+
     # Make Viewport Screenshot
     screenshot_code = """
         import bpy
@@ -284,18 +389,28 @@ async def plan_llm_func(state):
 
         bpy.context.scene.render.filepath = "C:\\Users\\cross\\Desktop\\Render.png"
         bpy.ops.render.render(write_still=True)
+
         """
     try:
-        await agent.ainvoke(
+        tool_result = await agent.ainvoke(
             {"messages": [{"role": "user", "content": "Execute the following Blender Python Code:\n"+screenshot_code+
             "\nIf it does not work try to fix and reexecute it."}]}
         )
+        print("\n")
+        print("ToolLLM Output:")
+        print("\n")
         print("Screenshot taken.")
         print("\n")
-
     except Exception as e:
         print(f"Error in main execution: {e}")
 
+    # Get Code Agent Result
+    print("\n")
+    print("CodeLLM Output:")
+    print("\n")
+    print(filtered_output)
+    print("\n")
+    state["error"] = filtered_output
 
     return state
 
@@ -327,50 +442,44 @@ async def main():
     # Create StateGraph With Nodes And Edges
     graph = StateGraph(MyState)
     graph.add_node("vision_llm", vision_llm_func)
-    graph.add_node("plan_llm", plan_llm_func)
+    graph.add_node("code_llm", code_llm_func)
+    graph.add_node("plan_llm",plan_llm_func)
+    graph.add_node("tools_llm", tools_llm_func)
     graph.add_edge(START,"vision_llm")
     graph.add_edge("vision_llm", "plan_llm")
-    graph.add_edge("plan_llm",END)
+    graph.add_edge("plan_llm","code_llm")
+    graph.add_edge("code_llm", "tools_llm")
+    graph.add_edge("tools_llm",END)
     graph = graph.compile()
 
     # Get StateGraph Output State
-    prompt_vision = """You are an expert in image analysis, 3D modeling, and Blender scripting. 
-            Provide a detailed and extensive description of the image and list all assets including hdri, models and textures you will need to create it."""
-
-    prompt_plan = """You are an expert in image analysis, 3D modeling, and Blender scripting.
-        Recreate the Scene with colors or textures in Blender using Polyhaven Assets and Blender Code Execution with the provided graph to match the description.
-        """
-    
-
-    input_state = MyState(userinput=user_input,filepath=file_path,promptplan=prompt_plan,promptvision=prompt_vision)
+    input_state = MyState(userinput=user_input,filepath=file_path)
     output_state = await graph.ainvoke(input_state)
+
+    # Create StateGraph With Nodes And Edges for Feedback Loop
+    graph = StateGraph(MyState)
+    graph.add_node("vision_llm", vision_llm_func_feedback)
+    graph.add_node("code_llm", code_llm_func_feedback)
+    graph.add_node("tools_llm", tools_llm_func)
+    graph.add_edge(START,"vision_llm")
+    graph.add_edge("vision_llm", "code_llm")
+    graph.add_edge("code_llm", "tools_llm")
+    graph.add_edge("tools_llm",END)
+    graph = graph.compile()
 
     # Prepare Rendering Loop
     file_path_loop = "C:\\Users\\cross\\Desktop\\Render.png"
-    
-    prompt_vision_loop = """You are an expert in image analysis, 3D modeling, and Blender scripting. 
-            Provide a detailed comparison of the image and the discription.
-            Mark out all the differences. Provide a better discription and list of assets.
-            """
-    
-    prompt_plan_loop = """You are an expert in image analysis, 3D modeling, and Blender scripting. 
-            Improve the Scene in Blender to better match the graph in the provided plan."""
- 
     output_state["filepath"] = file_path_loop
-    output_state["promptvision"] = output_state["userinput"]+output_state["vision"]+prompt_vision_loop
-    output_state["promptplan"] = prompt_plan_loop
-
     input_state = output_state
-
-    # Start Rendering Loop
+    
+    # Start Feedback Loop
     for i in range(4):
         print("\n")
         print(f"++++++++++++++++++++++++++++++++++++++")
-        print(f"+ Rendering Loop iteration: {str(i+2)} +")
+        print(f"+ Feedback Loop iteration: {str(i+2)} +")
         print(f"++++++++++++++++++++++++++++++++++++++")
         print("\n")
         output_state = await graph.ainvoke(input_state)
-        print(output_state)
         input_state = output_state
 
 
