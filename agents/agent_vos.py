@@ -476,7 +476,7 @@ async def main():
     for i in range(4):
         print("\n")
         print(f"++++++++++++++++++++++++++++++++++++++")
-        print(f"+ Feedback Loop iteration: {str(i+2)} +")
+        print(f"+ Feedback Loop iteration: {str(i+2)}         +")
         print(f"++++++++++++++++++++++++++++++++++++++")
         print("\n")
         output_state = await graph.ainvoke(input_state)
