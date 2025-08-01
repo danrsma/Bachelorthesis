@@ -1,10 +1,10 @@
 from langchain_core.messages import HumanMessage
 from langchain_core.messages import AIMessage
+from langchain_ollama import ChatOllama
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from langchain_core.runnables import RunnableLambda
 from langgraph.prebuilt import create_react_agent
 from langgraph.graph import StateGraph, START, END
-from langchain_google_genai import ChatGoogleGenerativeAI
 
 from typing import TypedDict
 import base64
@@ -14,7 +14,6 @@ import asyncio
 import tkinter as tk
 from tkinter import filedialog
 import re
-import os
 
 
 class InputApp(tk.Tk):
@@ -77,8 +76,6 @@ class MyState(TypedDict):
     plan: str
     filepath: str
     userinput: str
-    error: str
-
 
 def prompt_func(data):
 
@@ -115,19 +112,11 @@ async def vision_llm_func(state: MyState) -> MyState:
     # Get Image Data
     file_path = state["filepath"]
     if file_path == "":
-
-
-        # Create LLM Agent
-        if "GOOGLE_API_KEY" not in os.environ:
-            os.environ["GOOGLE_API_KEY"] = API_KEY
-        
-        vision_llm_chat = ChatGoogleGenerativeAI(
-            model="gemini-2.5-flash",
-            temperature=0,
-            max_tokens=10000,
-            timeout=None,
-            max_retries=2,
-            # other params...
+        # Create Vision Agent Chain
+        vision_llm_chat = ChatOllama(
+            model="llama4:maverick",
+            base_url="http://localhost:11434",
+            temperature=0.5,
         )
 
         # Get Agent Result
@@ -155,17 +144,10 @@ async def vision_llm_func(state: MyState) -> MyState:
 
     image_b64= convert_to_base64(pil_image)
 
-    # Create LLM Agent
-    if "GOOGLE_API_KEY" not in os.environ:
-        os.environ["GOOGLE_API_KEY"] = API_KEY
-    
-    vision_llm_chat = ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash",
-        temperature=0,
-        max_tokens=10000,
-        timeout=None,
-        max_retries=2,
-        # other params...
+    # Create Vision Agent Chain
+    vision_llm_chat = ChatOllama(
+        model="llama4:maverick",
+        temperature=0.9,
     )
 
     prompt_func_runnable = RunnableLambda(prompt_func)
@@ -205,17 +187,10 @@ async def vision_llm_func_feedback(state: MyState) -> MyState:
 
     image_b64= convert_to_base64(pil_image)
 
-    # Create LLM Agent
-    if "GOOGLE_API_KEY" not in os.environ:
-        os.environ["GOOGLE_API_KEY"] = API_KEY
-    
-    vision_llm_chat = ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash",
-        temperature=0,
-        max_tokens=10000,
-        timeout=None,
-        max_retries=2,
-        # other params...
+    # Create Vision Agent Chain
+    vision_llm_chat = ChatOllama(
+        model="llama4:maverick",
+        temperature=0.9,
     )
 
     prompt_func_runnable = RunnableLambda(prompt_func)
@@ -243,17 +218,10 @@ async def vision_llm_func_feedback(state: MyState) -> MyState:
 
 async def plan_llm_func(state):
 
-    # Create LLM Agent
-    if "GOOGLE_API_KEY" not in os.environ:
-        os.environ["GOOGLE_API_KEY"] = API_KEY
-    
-    plan_llm_chat = ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash",
-        temperature=0,
-        max_tokens=10000,
-        timeout=None,
-        max_retries=2,
-        # other params...
+    # Create Plan Agent
+    plan_llm_chat = ChatOllama(
+        model="llama4:maverick",
+        temperature=0.0,
     )
 
 
@@ -297,23 +265,16 @@ async def plan_llm_func(state):
 
 def code_llm_func(state):
 
-    # Create LLM Agent
-    if "GOOGLE_API_KEY" not in os.environ:
-        os.environ["GOOGLE_API_KEY"] = API_KEY
-    
-    code_llm_chat = ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash",
-        temperature=0,
-        max_tokens=10000,
-        timeout=None,
-        max_retries=2,
-        # other params...
+    # Create Code Agent
+    code_llm_chat = ChatOllama(
+        model="llama4:maverick",
+        temperature=0.9,
     )
 
 
     # Get Agent Result
     prompt_code = """You are an expert in image analysis, 3D modeling, and Blender scripting. 
-            Implement the provided graph to create the described Landscape in Blender. Create every Object and Shape with math."""
+            Implement the provided graph to create the described Landscape in Blender."""
     code_llm_chat_input = state["plan"]+"\n"+prompt_code
     code_result = code_llm_chat.invoke(code_llm_chat_input)
 
@@ -328,24 +289,18 @@ def code_llm_func(state):
 
 def code_llm_func_feedback(state):
 
-    # Create LLM Agent
-    if "GOOGLE_API_KEY" not in os.environ:
-        os.environ["GOOGLE_API_KEY"] = API_KEY
-    
-    code_llm_chat = ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash",
-        temperature=0,
-        max_tokens=10000,
-        timeout=None,
-        max_retries=2,
-        # other params...
+    # Create Code Agent
+    code_llm_chat = ChatOllama(
+        model="qwen3:235b",
+        temperature=0.9,
     )
+
 
     # Get Agent Result
     prompt_code = """You are an expert in image analysis, 3D modeling, and Blender scripting. 
-            Implement the provided graph to create the described Landscape in Blender. Create every Object and Shape with math.
-            Furthermore try to minimize the following differences and error"""
-    code_llm_chat_input = state["plan"]+"\n"+prompt_code+state["vision"]+state["error"]
+            Implement the provided graph to create the described Landscape in Blender.
+            Furthermore try to minimize the following differences"""
+    code_llm_chat_input = state["plan"]+"\n"+prompt_code+state["vision"]
     code_result = code_llm_chat.invoke(code_llm_chat_input)
 
     print("\n")
@@ -377,38 +332,29 @@ async def tools_llm_func(state):
     except Exception as e:
         print(f"Error in main execution: {e}")
 
-    # Create LLM Agent
-    if "GOOGLE_API_KEY" not in os.environ:
-        os.environ["GOOGLE_API_KEY"] = API_KEY
-    
-    tools_llm_chat = ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash",
-        temperature=0,
-        max_tokens=10000,
-        timeout=None,
-        max_retries=2,
-        # other params...
-    )
-    
     # Filter The Tools
-    tools = [
-        t for t in tools
-        if t.name not in {"get_hyper3d_status", "get_sketchfab_status", "search_sketchfab_models","download_sketchfab_models","generate_hyper3d_model_via_text","generate_hyper3d_model_via_images","poll_rodin_job_status","import_generated_asset"}
-    ]
+    filtered_tools = [t for t in tools if t.name not in {"get_hyper3d_status", "get_sketchfab_status", "search_sketchfab_models","download_sketchfab_models","generate_hyper3d_model_via_text","generate_hyper3d_model_via_images","poll_rodin_job_status","import_generated_asset"}]
+    
+    # Create Llm Chat
+    tools_llm_chat = ChatOllama(
+        model="qwen3:235b",
+        temperature=0.0,
+    )
     
     #Create Tool Agent
     agent = create_react_agent(
         model = tools_llm_chat,
-        tools=tools
+        tools=filtered_tools
     )
 
 
     # Get Agent Result
     try:
         tool_result = await agent.ainvoke(
-            {"messages": [{"role": "user", "content": "Execute the following Blender Python Code:\n"+state["code"]+
-            "\nIf it does not work try to recreate this scene.\n"+state["vision"]+
-            "\nTry to add assets from polyhaven to improve the scene use this graph to add the assets correctly.\n"+state["plan"]
+            {"messages": [{"role": "user", "content": "You are an expert in image analysis, 3D modeling, and Blender scripting."+
+            "\nExecute the following Blender Python Code:\n"+state["code"]+
+            "\nIf it does not work try to correct the code and reexecute"+               
+            "\nTry to add assets from polyhaven to improve the scene using the graph.\n"+state["plan"]
             }]}
         )
 
@@ -460,7 +406,6 @@ async def tools_llm_func(state):
     print("\n")
     print(filtered_output)
     print("\n")
-    state["error"] = filtered_output
 
     return state
 
@@ -525,9 +470,9 @@ async def main():
     # Start Feedback Loop
     for i in range(4):
         print("\n")
-        print(f"++++++++++++++++++++++++++++++++++++++")
-        print(f"+ Feedback Loop iteration: {str(i+2)}         +")
-        print(f"++++++++++++++++++++++++++++++++++++++")
+        print(f"++++++++++++++++++++++++++++++")
+        print(f"+ Feedback Loop iteration: {str(i+2)} +")
+        print(f"++++++++++++++++++++++++++++++")
         print("\n")
         output_state = await graph.ainvoke(input_state)
         input_state = output_state
@@ -535,6 +480,5 @@ async def main():
 
 if __name__ == "__main__":
     # Run the example
-    API_KEY = ""
     asyncio.run(main())
     

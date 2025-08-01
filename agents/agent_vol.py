@@ -4,7 +4,6 @@ from langchain_mcp_adapters.client import MultiServerMCPClient
 from langchain_core.runnables import RunnableLambda
 from langgraph.prebuilt import create_react_agent
 from langgraph.graph import StateGraph, START, END
-from langchain_google_genai import ChatGoogleGenerativeAI
 
 from typing import TypedDict
 import base64
@@ -13,6 +12,7 @@ from PIL import Image
 import asyncio
 import tkinter as tk
 from tkinter import filedialog
+
 
 
 class InputApp(tk.Tk):
@@ -71,10 +71,12 @@ class MyState(TypedDict):
 
     # Pass States Through Stategraph
     vision: str
+    code: str
     filepath: str
     userinput: str
     promptvision: str
-    promptplan: str
+    promptcode: str
+    error: str
 
 
 def prompt_func(data):
@@ -111,33 +113,9 @@ async def vision_llm_func(state: MyState) -> MyState:
 
     # Get Image Data
     file_path = state["filepath"]
-    
-    
     if file_path == "":
-        # Create Vision Agent Chain
-        vision_llm_chat = ChatOllama(
-            model="llama4:maverick",
-            base_url="http://localhost:11434",
-            temperature=0.5,
-        )
-
-        # Get Agent Result
-        prompt = """You are an expert in image analysis, 3D modeling, and Blender scripting. 
-            Provide a detailed and enhanced description of the userinput and list all assets including hdri, models and textures you will need to create it."""+state["userinput"]
-        vision_result = vision_llm_chat.invoke(prompt)
-
-        # Ouput Image LLM
-        print("\n")
-        print("ImageLLM Output:")
-        print("\n")
-        print(vision_result.content)
-        print("\n")
-
-        state["vision"] = vision_result.content
+        state["vision"] = ""
         return state
-    
-    
-    # Open Image
     try:
 
         pil_image = Image.open(file_path)
@@ -150,9 +128,8 @@ async def vision_llm_func(state: MyState) -> MyState:
 
     # Create Vision Agent Chain
     vision_llm_chat = ChatOllama(
-        model="llama4:maverick",
-        base_url="http://localhost:11434",
-        temperature=0.5,
+        model="gemma3:12b",
+        temperature=0.9,
     )
 
     prompt_func_runnable = RunnableLambda(prompt_func)
@@ -165,7 +142,6 @@ async def vision_llm_func(state: MyState) -> MyState:
         "image": image_b64,
     })
 
-    # Ouput Image LLM
     print("\n")
     print("ImageLLM Output:")
     print("\n")
@@ -176,9 +152,42 @@ async def vision_llm_func(state: MyState) -> MyState:
 
     return state
 
-async def plan_llm_func(state):
+def code_llm_func(state):
+
+    # Create Code Agent
+    code_llm_chat = ChatOllama(
+        model="hf.co/mradermacher/BlenderLLM-GGUF:Q8_0",
+        temperature=0.9,
+    )
+
+    # Get Agent Result
+    code_llm_chat_input = state["userinput"]+"\n"+state["vision"]+"\n"+state["code"]+"\n"+state["promptcode"]
+    code_result = code_llm_chat.invoke(code_llm_chat_input)
+
+    print("\n")
+    print("CodeLLM Output:")
+    print("\n")
+    print(code_result.content)
+    print("\n")
+    state["code"] = code_result.content
+
+    return state
+
+
+async def tools_llm_func(state):
 
     # Get MCP-Tools From Server
+    '''
+    client = MultiServerMCPClient(
+        {
+            "blender_mcp": {
+                "command": "firejail",
+                "args": ["uvx", "blender-mcp", "--private", "--net=none", "--caps.drop=all", "--seccomp", "--private-dev", "--hostname=sandbox"],
+                "transport": "stdio",
+            }
+        }
+    )
+    '''
     client = MultiServerMCPClient(
         {
             "blender_mcp": {
@@ -195,35 +204,25 @@ async def plan_llm_func(state):
     except Exception as e:
         print(f"Error in main execution: {e}")
 
-    # Filter The Tools
-    tools = [
-        t for t in tools
-        if t.name not in {"get_hyper3d_status", "get_sketchfab_status", "search_sketchfab_models","download_sketchfab_models","generate_hyper3d_model_via_text","generate_hyper3d_model_via_images","poll_rodin_job_status","import_generated_asset"}
-    ]
-
-    # Create Agent
+    # Create Tool Agent
     tools_llm_chat = ChatOllama(
-        model="qwen3:235b",
-        base_url="http://localhost:11434", 
-        temperature=0.5,
+        model="qwen3:8b",
+        temperature=0.0,
     )
     agent = create_react_agent(
         model = tools_llm_chat,
         tools=tools
     )
 
-    plan_llm_chat_input = state["prompt_plan"]+"\n"+state["vision"]
-
     # Get Agent Result
     try:
-        await agent.ainvoke(
-            {"messages": [{"role": "user", "content": plan_llm_chat_input}]}
+        tool_result = await agent.ainvoke(
+            {"messages": [{"role": "user", "content": "Execute the following Blender Python Code:\n"+state["code"]}]}
         )
 
     except Exception as e:
         print(f"Error in main execution: {e}")
 
-    
     # Make Viewport Screenshot
     screenshot_code = """
         import bpy
@@ -244,18 +243,18 @@ async def plan_llm_func(state):
 
         bpy.context.scene.render.filepath = "C:\\Users\\cross\\Desktop\\Render.png"
         bpy.ops.render.render(write_still=True)
+
         """
     try:
-        await agent.ainvoke(
+        tool_result = await agent.ainvoke(
             {"messages": [{"role": "user", "content": "Execute the following Blender Python Code:\n"+screenshot_code+
             "\nIf it does not work try to fix and reexecute it."}]}
         )
-        print("Screenshot taken.")
-        print("\n")
-
     except Exception as e:
         print(f"Error in main execution: {e}")
 
+
+    state["error"] = tool_result
 
     return state
 
@@ -287,49 +286,46 @@ async def main():
     # Create StateGraph With Nodes And Edges
     graph = StateGraph(MyState)
     graph.add_node("vision_llm", vision_llm_func)
-    graph.add_node("plan_llm", plan_llm_func)
+    graph.add_node("code_llm", code_llm_func)
+    graph.add_node("tools_llm", tools_llm_func)
     graph.add_edge(START,"vision_llm")
-    graph.add_edge("vision_llm", "plan_llm")
-    graph.add_edge("plan_llm",END)
+    graph.add_edge("vision_llm", "code_llm")
+    graph.add_edge("code_llm", "tools_llm")
+    graph.add_edge("tools_llm",END)
     graph = graph.compile()
 
     # Get StateGraph Output State
-    prompt_vision = """You are an expert in image analysis, 3D modeling, and Blender scripting. 
-            Provide a detailed and extensive description of the image and list all assets including hdri, models and textures you will need to create it."""
-
-    prompt_plan = """You are an expert in image analysis, 3D modeling, and Blender scripting.
-        Recreate the provided Scene in Blender. Use Polyhaven assets and Blender Code Execution
-        """
-    
-
-    input_state = MyState(userinput=user_input,filepath=file_path,promptplan=prompt_plan,promptvision=prompt_vision)
+    prompt_vision = """Provide a detailed and extensive description of the image.
+        Describe every object in the picture accurately.
+        Describe the shape of the lanscape elements."""
+    prompt_code = "Create Blender Code of the described Landscape. Create every Object and Shape with math."
+    input_state = MyState(userinput=user_input,filepath=file_path,promptcode=prompt_code,promptvision=prompt_vision,code="")
     output_state = await graph.ainvoke(input_state)
+    print(output_state)
 
     # Prepare Rendering Loop
     file_path_loop = "C:\\Users\\cross\\Desktop\\Render.png"
-    
-    prompt_vision_loop = """You are an expert in image analysis, 3D modeling, and Blender scripting. 
-            Provide a detailed comparison of the image and the discription.
-            Mark out all the differences. Provide a better discription and list of assets.
-            """
-    
-    prompt_plan_loop = """You are an expert in image analysis, 3D modeling, and Blender scripting. 
-            Improve the Scene in Blender to minimize the differences."""
- 
+    prompt_vision_loop = "How does image compare to the the discription? What are the differences?"
+    prompt_code_loop = """The new image is the result of the provided Blender Code.
+        Improve the Blender Code to minimize the differences.
+        Also look at the errors during the first execution and try to avoid them.
+        """
     output_state["filepath"] = file_path_loop
-    output_state["promptvision"] = output_state["vision"]+prompt_vision_loop
-    output_state["promptplan"] = prompt_plan_loop
+    output_state["promptvision"] = output_state["userinput"]+output_state["vision"]+prompt_vision_loop
+    output_state["promptcode"] = prompt_code_loop
 
     input_state = output_state
+    print(input_state)
 
     # Start Rendering Loop
     for i in range(4):
         print("\n")
-        print(f"++++++++++++++++++++++++++++++++++++++")
+        print(f"+++++++++++++++++++++++++++++++")
         print(f"+ Rendering Loop iteration: {str(i+2)} +")
-        print(f"++++++++++++++++++++++++++++++++++++++")
+        print(f"+++++++++++++++++++++++++++++++")
         print("\n")
         output_state = await graph.ainvoke(input_state)
+        print(output_state)
         input_state = output_state
 
 

@@ -72,7 +72,6 @@ class MyState(TypedDict):
 
     # Pass States Through Stategraph
     vision: str
-    code: str
     plan: str
     filepath: str
     userinput: str
@@ -265,55 +264,6 @@ async def plan_llm_func(state):
     state["plan"] = filtered_plan
     return state
 
-def code_llm_func(state):
-
-    # Create Code Agent
-    code_llm_chat = ChatOllama(
-        model="llama4:maverick",
-        temperature=0.9,
-    )
-
-
-    # Get Agent Result
-    prompt_code = """You are an expert in image analysis, 3D modeling, and Blender scripting. 
-            Implement the provided graph to create the described Landscape in Blender. Create every Object and Shape with math."""
-    code_llm_chat_input = state["plan"]+"\n"+prompt_code
-    code_result = code_llm_chat.invoke(code_llm_chat_input)
-
-    print("\n")
-    print("CodeLLM Output:")
-    print("\n")
-    print(code_result.content)
-    print("\n")
-    state["code"] = code_result.content
-
-    return state
-
-def code_llm_func_feedback(state):
-
-    # Create Code Agent
-    code_llm_chat = ChatOllama(
-        model="qwen3:235b",
-        temperature=0.9,
-    )
-
-
-    # Get Agent Result
-    prompt_code = """You are an expert in image analysis, 3D modeling, and Blender scripting. 
-            Implement the provided graph to create the described Landscape in Blender. Create every Object and Shape with math.
-            Furthermore try to minimize the following differences and error"""
-    code_llm_chat_input = state["plan"]+"\n"+prompt_code+state["vision"]+state["error"]
-    code_result = code_llm_chat.invoke(code_llm_chat_input)
-
-    print("\n")
-    print("CodeLLM Output:")
-    print("\n")
-    print(code_result.content)
-    print("\n")
-    state["code"] = code_result.content
-
-    return state
-
 
 async def tools_llm_func(state):
 
@@ -334,31 +284,124 @@ async def tools_llm_func(state):
     except Exception as e:
         print(f"Error in main execution: {e}")
 
+    # Filter The Tools
+    filtered_tools = [t for t in tools if t.name not in {"get_hyper3d_status", "get_sketchfab_status", "search_sketchfab_models","download_sketchfab_models","generate_hyper3d_model_via_text","generate_hyper3d_model_via_images","poll_rodin_job_status","import_generated_asset"}]
+    
     # Create Llm Chat
     tools_llm_chat = ChatOllama(
         model="qwen3:235b",
         temperature=0.0,
     )
     
-    # Filter The Tools
-    tools = [
-        t for t in tools
-        if t.name not in {"get_hyper3d_status", "get_sketchfab_status", "search_sketchfab_models","download_sketchfab_models","generate_hyper3d_model_via_text","generate_hyper3d_model_via_images","poll_rodin_job_status","import_generated_asset"}
-    ]
-    
     #Create Tool Agent
     agent = create_react_agent(
         model = tools_llm_chat,
-        tools=tools
+        tools=filtered_tools
     )
 
 
     # Get Agent Result
     try:
         tool_result = await agent.ainvoke(
-            {"messages": [{"role": "user", "content": "Execute the following Blender Python Code:\n"+state["code"]+
-            "\nIf it does not work try to recreate this scene.\n"+state["vision"]+
-            "\nTry to add assets from polyhaven to improve the scene use this graph to add the assets correctly.\n"+state["plan"]
+            {"messages": [{"role": "user", "content": "You are an expert in image analysis, 3D modeling, and Blender scripting."+
+            "\nRecreate the scene in Blender by implementing the scenegraph:\n"+state["plan"]+
+            "\nAdd assets from polyhaven to improve the scene"
+            }]}
+        )
+
+    except Exception as e:
+        print(f"Error in main execution: {e}")
+
+    ai_messages = [m for m in tool_result["messages"] if isinstance(m, AIMessage)]
+    full_output = "\n\n".join(m.content for m in ai_messages)
+    filtered_output = re.sub(r'<think>.*?</think>\s*', '', full_output, flags=re.DOTALL)
+
+    # Make Viewport Screenshot
+    screenshot_code = """
+        import bpy
+
+        # Create a new camera object
+        cam_data = bpy.data.cameras.new(name="MyCamera")
+        cam_object = bpy.data.objects.new("MyCamera", cam_data)
+
+        # Set camera location and rotation
+        cam_object.location = (0, -10, 7)
+        cam_object.rotation_euler = (1.1, 0, 0)
+
+        # Link the camera to the current scene
+        bpy.context.collection.objects.link(cam_object)
+
+        # Set the new camera as the active camera
+        bpy.context.scene.camera = cam_object
+
+        bpy.context.scene.render.filepath = "C:\\Users\\cross\\Desktop\\Render.png"
+        bpy.ops.render.render(write_still=True)
+
+        """
+    try:
+        tool_result = await agent.ainvoke(
+            {"messages": [{"role": "user", "content": "Execute the following Blender Python Code:\n"+screenshot_code+
+            "\nIf it does not work try to fix and reexecute it."}]}
+        )
+        print("\n")
+        print("ToolLLM Output:")
+        print("\n")
+        print("Screenshot taken.")
+        print("\n")
+    except Exception as e:
+        print(f"Error in main execution: {e}")
+
+    # Get Code Agent Result
+    print("\n")
+    print("CodeLLM Output:")
+    print("\n")
+    print(filtered_output)
+    print("\n")
+    state["error"] = filtered_output
+
+    return state
+
+async def tools_llm_func_feedback(state):
+
+    # Get MCP-Tools From Server
+    client = MultiServerMCPClient(
+        {
+            "blender_mcp": {
+                "command": "uvx",
+                "args": ["blender-mcp"],
+                "transport": "stdio",
+            }
+        }
+    )
+    try:
+
+        tools = await client.get_tools()
+
+    except Exception as e:
+        print(f"Error in main execution: {e}")
+
+    # Filter The Tools
+    filtered_tools = [t for t in tools if t.name not in {"get_hyper3d_status", "get_sketchfab_status", "search_sketchfab_models","download_sketchfab_models","generate_hyper3d_model_via_text","generate_hyper3d_model_via_images","poll_rodin_job_status","import_generated_asset"}]
+    
+    # Create Llm Chat
+    tools_llm_chat = ChatOllama(
+        model="qwen3:235b",
+        temperature=0.0,
+    )
+    
+    #Create Tool Agent
+    agent = create_react_agent(
+        model = tools_llm_chat,
+        tools=filtered_tools
+    )
+
+
+    # Get Agent Result
+    try:
+        tool_result = await agent.ainvoke(
+            {"messages": [{"role": "user", "content": "You are an expert in image analysis, 3D modeling, and Blender scripting."+
+            "\nUse Blender Code Execution and Polyhaven Assets to minimize the differences.\n"+state["vision"]+
+            "\nStick to the plan.\n"+state["plan"]
             }]}
         )
 
@@ -442,13 +485,11 @@ async def main():
     # Create StateGraph With Nodes And Edges
     graph = StateGraph(MyState)
     graph.add_node("vision_llm", vision_llm_func)
-    graph.add_node("code_llm", code_llm_func)
     graph.add_node("plan_llm",plan_llm_func)
     graph.add_node("tools_llm", tools_llm_func)
     graph.add_edge(START,"vision_llm")
     graph.add_edge("vision_llm", "plan_llm")
-    graph.add_edge("plan_llm","code_llm")
-    graph.add_edge("code_llm", "tools_llm")
+    graph.add_edge("plan_llm","tools_llm")
     graph.add_edge("tools_llm",END)
     graph = graph.compile()
 
@@ -459,11 +500,9 @@ async def main():
     # Create StateGraph With Nodes And Edges for Feedback Loop
     graph = StateGraph(MyState)
     graph.add_node("vision_llm", vision_llm_func_feedback)
-    graph.add_node("code_llm", code_llm_func_feedback)
-    graph.add_node("tools_llm", tools_llm_func)
+    graph.add_node("tools_llm", tools_llm_func_feedback)
     graph.add_edge(START,"vision_llm")
-    graph.add_edge("vision_llm", "code_llm")
-    graph.add_edge("code_llm", "tools_llm")
+    graph.add_edge("vision_llm", "tools_llm")
     graph.add_edge("tools_llm",END)
     graph = graph.compile()
 
@@ -475,9 +514,9 @@ async def main():
     # Start Feedback Loop
     for i in range(4):
         print("\n")
-        print(f"++++++++++++++++++++++++++++++++++++++")
-        print(f"+ Feedback Loop iteration: {str(i+2)}         +")
-        print(f"++++++++++++++++++++++++++++++++++++++")
+        print(f"++++++++++++++++++++++++++++++")
+        print(f"+ Feedback Loop iteration: {str(i+2)} +")
+        print(f"++++++++++++++++++++++++++++++")
         print("\n")
         output_state = await graph.ainvoke(input_state)
         input_state = output_state
