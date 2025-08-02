@@ -113,8 +113,28 @@ async def vision_llm_func(state: MyState) -> MyState:
 
     # Get Image Data
     file_path = state["filepath"]
+    user_input = state["userinput"]
     if file_path == "":
-        state["vision"] = ""
+        # Create Vision Agent Chain
+        vision_llm_chat = ChatOllama(
+            model="gemma3:12b",
+            temperature=0.9,
+        )
+
+        prompt = """Provide a detailed and extensive for the scene.
+            List all assets like hdris, models and textures you need to create the scene.
+            """
+        # Get Agent Chain Result
+        vision_result = chain.invoke(user_input+prompt)
+
+        print("\n")
+        print("ImageLLM Output:")
+        print("\n")
+        print(vision_result.content)
+        print("\n")
+
+        state["vision"] = vision_result.content
+
         return state
     try:
 
@@ -161,7 +181,7 @@ def code_llm_func(state):
     )
 
     # Get Agent Result
-    code_llm_chat_input = state["userinput"]+"\n"+state["vision"]+"\n"+state["code"]+"\n"+state["promptcode"]
+    code_llm_chat_input = state["vision"]+"\n"+state["code"]+"\n"+state["promptcode"]
     code_result = code_llm_chat.invoke(code_llm_chat_input)
 
     print("\n")

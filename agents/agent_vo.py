@@ -352,7 +352,7 @@ async def tools_llm_func(state):
     try:
         tool_result = await agent.ainvoke(
             {"messages": [{"role": "user", "content": "You are an expert in image analysis, 3D modeling, and Blender scripting."+
-            "\nImport all assets you need to execute the script.\n"+state["code"]+
+            "\nImport all assets you need to execute the script from Polyhaven.\n"+state["code"]+
             "\nExecute the following Blender Python Code:\n"+state["code"]+
             "\nIf it does not work try to correct the code and reexecute"              
             }]}
@@ -449,7 +449,7 @@ async def main():
 
     # Get StateGraph Output State
     input_state = MyState(userinput=user_input,filepath=file_path)
-    output_state = await graph.ainvoke(input_state)
+    output_state = await graph.ainvoke(input_state, config={"recursion_limit": 150})
 
     # Create StateGraph With Nodes And Edges for Feedback Loop
     graph = StateGraph(MyState)
@@ -474,7 +474,7 @@ async def main():
         print(f"+ Feedback Loop iteration: {str(i+2)} +")
         print(f"++++++++++++++++++++++++++++++")
         print("\n")
-        output_state = await graph.ainvoke(input_state)
+        output_state = await graph.ainvoke(input_state, config={"recursion_limit": 150})
         input_state = output_state
 
 
