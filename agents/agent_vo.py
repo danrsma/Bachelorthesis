@@ -352,8 +352,8 @@ async def tools_llm_func(state):
     try:
         tool_result = await agent.ainvoke(
             {"messages": [{"role": "user", "content": "You are an expert in image analysis, 3D modeling, and Blender scripting."+
-            "\nImport all assets you need to execute the script from Polyhaven.\n"+state["code"]+
-            "\nExecute the following Blender Python Code:\n"+state["code"]+
+            "\nImport all assets you need to execute the script from Polyhaven"+
+            " and execute the following Blender Python Code:\n"+state["code"]+
             "\nIf it does not work try to correct the code and reexecute"              
             }]}
         )
@@ -448,8 +448,8 @@ async def tools_llm_func_feedback(state):
     try:
         tool_result = await agent.ainvoke(
             {"messages": [{"role": "user", "content": "You are an expert in image analysis, 3D modeling, and Blender scripting."+
-            "\nImport all assets you need to execute the script from Polyhaven.\n"+state["code"]+
-            "\nExecute the following Blender Python Code:\n"+state["code"]+
+            "\nImport all assets you need to execute the script from Polyhaven"+
+            " and execute the following Blender Python Code:\n"+state["code"]+
             "\nIf it does not work try to correct the code and reexecute"              
             }]}
         )
