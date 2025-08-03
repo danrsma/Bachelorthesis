@@ -261,7 +261,7 @@ async def tools_llm_func(state):
         # Set the new camera as the active camera
         bpy.context.scene.camera = cam_object
 
-        bpy.context.scene.render.filepath = "C:\\Users\\cross\\Desktop\\Render.png"
+        bpy.context.scene.render.filepath = "C:\\Users\\cross\\Desktop\\Image.png"
         bpy.ops.render.render(write_still=True)
 
         """
@@ -324,7 +324,7 @@ async def main():
     print(output_state)
 
     # Prepare Rendering Loop
-    file_path_loop = "C:\\Users\\cross\\Desktop\\Render.png"
+    file_path_loop = "C:\\Users\\cross\\Desktop\\Image.png"
     prompt_vision_loop = "How does image compare to the the discription? What are the differences?"
     prompt_code_loop = """The new image is the result of the provided Blender Code.
         Improve the Blender Code to minimize the differences.
@@ -340,9 +340,9 @@ async def main():
     # Start Rendering Loop
     for i in range(4):
         print("\n")
-        print(f"+++++++++++++++++++++++++++++++")
-        print(f"+ Rendering Loop iteration: {str(i+2)} +")
-        print(f"+++++++++++++++++++++++++++++++")
+        print(f"++++++++++++++++++++++++++++++")
+        print(f"+ Feedback Loop iteration: {str(i+2)} +")
+        print(f"++++++++++++++++++++++++++++++")
         print("\n")
         output_state = await graph.ainvoke(input_state)
         print(output_state)

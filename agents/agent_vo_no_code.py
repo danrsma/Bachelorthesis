@@ -334,7 +334,7 @@ async def tools_llm_func(state):
         # Set the new camera as the active camera
         bpy.context.scene.camera = cam_object
 
-        bpy.context.scene.render.filepath = "C:\\Users\\cross\\Desktop\\Render.png"
+        bpy.context.scene.render.filepath = "C:\\Users\\cross\\Desktop\\Image.png"
         bpy.ops.render.render(write_still=True)
 
         """
@@ -430,7 +430,7 @@ async def tools_llm_func_feedback(state):
         # Set the new camera as the active camera
         bpy.context.scene.camera = cam_object
 
-        bpy.context.scene.render.filepath = "C:\\Users\\cross\\Desktop\\Render.png"
+        bpy.context.scene.render.filepath = "C:\\Users\\cross\\Desktop\\Feedback.png"
         bpy.ops.render.render(write_still=True)
 
         """
@@ -507,7 +507,7 @@ async def main():
     graph = graph.compile()
 
     # Prepare Rendering Loop
-    file_path_loop = "C:\\Users\\cross\\Desktop\\Render.png"
+    file_path_loop = "C:\\Users\\cross\\Desktop\\Image.png"
     output_state["filepath"] = file_path_loop
     input_state = output_state
     
@@ -519,6 +519,8 @@ async def main():
         print(f"++++++++++++++++++++++++++++++")
         print("\n")
         output_state = await graph.ainvoke(input_state)
+        file_path_loop = "C:\\Users\\cross\\Desktop\\Feedback.png"
+        output_state["filepath"] = file_path_loop
         input_state = output_state
 
 

@@ -231,7 +231,7 @@ async def llm_func(state):
                 # Set the new camera as the active camera
                 bpy.context.scene.camera = cam_object
 
-                bpy.context.scene.render.filepath = "C:\\Users\\cross\\Desktop\\Render.png"
+                bpy.context.scene.render.filepath = "C:\\Users\\cross\\Desktop\\Image.png"
                 bpy.ops.render.render(write_still=True)
 
                 """
@@ -358,7 +358,7 @@ async def llm_func(state):
                 # Set the new camera as the active camera
                 bpy.context.scene.camera = cam_object
 
-                bpy.context.scene.render.filepath = "C:\\Users\\cross\\Desktop\\Render.png"
+                bpy.context.scene.render.filepath = "C:\\Users\\cross\\Desktop\\Feedback.png"
                 bpy.ops.render.render(write_still=True)
 
                 """
@@ -474,7 +474,7 @@ async def llm_func(state):
                 # Set the new camera as the active camera
                 bpy.context.scene.camera = cam_object
 
-                bpy.context.scene.render.filepath = "C:\\Users\\cross\\Desktop\\Render.png"
+                bpy.context.scene.render.filepath = "C:\\Users\\cross\\Desktop\\Image.png"
                 bpy.ops.render.render(write_still=True)
 
                 """
@@ -602,7 +602,7 @@ async def llm_func(state):
                 # Set the new camera as the active camera
                 bpy.context.scene.camera = cam_object
 
-                bpy.context.scene.render.filepath = "C:\\Users\\cross\\Desktop\\Render.png"
+                bpy.context.scene.render.filepath = "C:\\Users\\cross\\Desktop\\Feedback.png"
                 bpy.ops.render.render(write_still=True)
 
                 """
@@ -657,7 +657,7 @@ async def main():
 
     time.sleep(10)
     # Prepare Rendering Loop
-    file_path_loop = "C:\\Users\\cross\\Desktop\\Render.png"
+    file_path_loop = "C:\\Users\\cross\\Desktop\\Image.png"
     output_state["filepath_2"] = file_path_loop
     input_state = output_state
 
@@ -666,13 +666,15 @@ async def main():
     # Start Rendering Loop
     for i in range(4):
         print("\n")
-        print(f"+++++++++++++++++++++++++++++++")
-        print(f"+ Rendering Loop iteration: {str(i+2)} +")
-        print(f"+++++++++++++++++++++++++++++++")
+        print(f"++++++++++++++++++++++++++++++")
+        print(f"+ Feedback Loop iteration: {str(i+2)} +")
+        print(f"++++++++++++++++++++++++++++++")
         print("\n")
         time.sleep(10)
         output_state = await graph.ainvoke(input_state, config={"recursion_limit": 150})
         print(output_state)
+        file_path_loop = "C:\\Users\\cross\\Desktop\\Feedback.png"
+        output_state["filepath_2"] = file_path_loop
         input_state = output_state
 
 

@@ -434,7 +434,111 @@ async def tools_llm_func(state):
         # Set the new camera as the active camera
         bpy.context.scene.camera = cam_object
 
-        bpy.context.scene.render.filepath = "C:\\Users\\cross\\Desktop\\Render.png"
+        bpy.context.scene.render.filepath = "C:\\Users\\cross\\Desktop\\Image.png"
+        bpy.ops.render.render(write_still=True)
+
+        """
+    try:
+        tool_result = await agent.ainvoke(
+            {"messages": [{"role": "user", "content": "Execute the following Blender Python Code:\n"+screenshot_code+
+            "\nIf it does not work try to fix and reexecute it."}]}
+        )
+        print("\n")
+        print("ToolLLM Output:")
+        print("\n")
+        print("Screenshot taken.")
+        print("\n")
+    except Exception as e:
+        print(f"Error in main execution: {e}")
+
+    # Get Code Agent Result
+    print("\n")
+    print("CodeLLM Output:")
+    print("\n")
+    print(filtered_output)
+    print("\n")
+
+    return state
+
+
+async def tools_llm_func_feedback(state):
+
+    # Get MCP-Tools From Server
+    client = MultiServerMCPClient(
+        {
+            "blender_mcp": {
+                "command": "uvx",
+                "args": ["blender-mcp"],
+                "transport": "stdio",
+            }
+        }
+    )
+    try:
+        tools = await client.get_tools()
+
+    except Exception as e:
+        print(f"Error in main execution: {e}")
+
+    # Filter The Tools
+    filtered_tools = [t for t in tools if t.name not in {"get_hyper3d_status", "get_sketchfab_status", "search_sketchfab_models","download_sketchfab_models","generate_hyper3d_model_via_text","generate_hyper3d_model_via_images","poll_rodin_job_status","import_generated_asset"}]
+
+    # Create LLM Agent
+    if "GOOGLE_API_KEY" not in os.environ:
+        os.environ["GOOGLE_API_KEY"] = API_KEY
+    
+    tools_llm_chat = ChatGoogleGenerativeAI(
+        model="gemini-2.5-flash",
+        temperature=0,
+        max_tokens=10000,
+        timeout=None,
+        max_retries=2,
+        # other params...
+    )
+    
+    
+    #Create Tool Agent
+    agent = create_react_agent(
+        model = tools_llm_chat,
+        tools=filtered_tools
+    )
+
+
+    # Get Agent Result
+    try:
+        tool_result = await agent.ainvoke(
+            {"messages": [{"role": "user", "content": "You are an expert in image analysis, 3D modeling, and Blender scripting."+
+            "\nExecute the following Blender Python Code:\n"+state["code"]+
+            "\nIf it does not work try to correct the code and reexecute"+               
+            "\nTry to add assets from polyhaven to improve the scene using the graph.\n"+state["plan"]
+            }]}
+        )
+
+    except Exception as e:
+        print(f"Error in main execution: {e}")
+
+    ai_messages = [m for m in tool_result["messages"] if isinstance(m, AIMessage)]
+    full_output = "\n\n".join(m.content for m in ai_messages)
+    filtered_output = re.sub(r'<think>.*?</think>\s*', '', full_output, flags=re.DOTALL)
+
+    # Make Viewport Screenshot
+    screenshot_code = """
+        import bpy
+
+        # Create a new camera object
+        cam_data = bpy.data.cameras.new(name="MyCamera")
+        cam_object = bpy.data.objects.new("MyCamera", cam_data)
+
+        # Set camera location and rotation
+        cam_object.location = (0, -10, 7)
+        cam_object.rotation_euler = (1.1, 0, 0)
+
+        # Link the camera to the current scene
+        bpy.context.collection.objects.link(cam_object)
+
+        # Set the new camera as the active camera
+        bpy.context.scene.camera = cam_object
+
+        bpy.context.scene.render.filepath = "C:\\Users\\cross\\Desktop\\Feedback.png"
         bpy.ops.render.render(write_still=True)
 
         """
@@ -506,7 +610,7 @@ async def main():
     graph = StateGraph(MyState)
     graph.add_node("vision_llm", vision_llm_func_feedback)
     graph.add_node("code_llm", code_llm_func_feedback)
-    graph.add_node("tools_llm", tools_llm_func)
+    graph.add_node("tools_llm", tools_llm_func_feedback)
     graph.add_edge(START,"vision_llm")
     graph.add_edge("vision_llm", "code_llm")
     graph.add_edge("code_llm", "tools_llm")
@@ -514,7 +618,7 @@ async def main():
     graph = graph.compile()
 
     # Prepare Rendering Loop
-    file_path_loop = "C:\\Users\\cross\\Desktop\\Render.png"
+    file_path_loop = "C:\\Users\\cross\\Desktop\\Image.png"
     output_state["filepath"] = file_path_loop
     input_state = output_state
     
@@ -526,6 +630,8 @@ async def main():
         print(f"++++++++++++++++++++++++++++++")
         print("\n")
         output_state = await graph.ainvoke(input_state, config={"recursion_limit": 150})
+        file_path_loop = "C:\\Users\\cross\\Desktop\\Feedback.png"
+        output_state["filepath"] = file_path_loop
         input_state = output_state
 
 
