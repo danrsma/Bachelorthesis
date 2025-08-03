@@ -243,7 +243,7 @@ async def tools_llm_func(state):
         temperature=0.0,
     )
     
-    #Create Tool Agent
+    # Create Tool Agent
     agent = create_react_agent(
         model = tools_llm_chat,
         tools=filtered_tools
@@ -297,15 +297,10 @@ async def tools_llm_func(state):
         print("\n")
         print("Screenshot taken.")
         print("\n")
+        print(filtered_output)
+        print("\n")
     except Exception as e:
         print(f"Error in main execution: {e}")
-
-    # Get Code Agent Result
-    print("\n")
-    print("CodeLLM Output:")
-    print("\n")
-    print(filtered_output)
-    print("\n")
 
     return state
 
