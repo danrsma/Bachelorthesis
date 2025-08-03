@@ -655,12 +655,12 @@ async def main():
     input_state = MyState(filepath_1=file_path,filepath_2="",userinput=user_input,vision="")
     output_state = await graph.ainvoke(input_state, config={"recursion_limit": 150})
 
-    time.sleep(10)
+
     # Prepare Rendering Loop
+    time.sleep(10)
     file_path_loop = "C:\\Users\\cross\\Desktop\\Image.png"
     output_state["filepath_2"] = file_path_loop
     input_state = output_state
-
     time.sleep(10)
 
     # Start Rendering Loop
@@ -670,12 +670,13 @@ async def main():
         print(f"+ Feedback Loop iteration: {str(i+2)} +")
         print(f"++++++++++++++++++++++++++++++")
         print("\n")
-        time.sleep(10)
         output_state = await graph.ainvoke(input_state, config={"recursion_limit": 150})
         print(output_state)
+        time.sleep(10)
         file_path_loop = "C:\\Users\\cross\\Desktop\\Feedback.png"
         output_state["filepath_2"] = file_path_loop
         input_state = output_state
+        time.sleep(10)
 
 
 if __name__ == "__main__":

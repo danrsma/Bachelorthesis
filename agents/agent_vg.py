@@ -15,6 +15,7 @@ import tkinter as tk
 from tkinter import filedialog
 import re
 import os
+import time
 
 
 class InputApp(tk.Tk):
@@ -618,9 +619,11 @@ async def main():
     graph = graph.compile()
 
     # Prepare Rendering Loop
+    time.sleep(10)
     file_path_loop = "C:\\Users\\cross\\Desktop\\Image.png"
     output_state["filepath"] = file_path_loop
     input_state = output_state
+    time.sleep(10)
     
     # Start Feedback Loop
     for i in range(4):
@@ -630,9 +633,11 @@ async def main():
         print(f"++++++++++++++++++++++++++++++")
         print("\n")
         output_state = await graph.ainvoke(input_state, config={"recursion_limit": 150})
+        time.sleep(10)
         file_path_loop = "C:\\Users\\cross\\Desktop\\Feedback.png"
         output_state["filepath"] = file_path_loop
         input_state = output_state
+        time.sleep(10)
 
 
 if __name__ == "__main__":
