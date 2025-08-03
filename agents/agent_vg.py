@@ -449,15 +449,10 @@ async def tools_llm_func(state):
         print("\n")
         print("Screenshot taken.")
         print("\n")
+        print(filtered_output)
+        print("\n")
     except Exception as e:
         print(f"Error in main execution: {e}")
-
-    # Get Code Agent Result
-    print("\n")
-    print("CodeLLM Output:")
-    print("\n")
-    print(filtered_output)
-    print("\n")
 
     return state
 
@@ -553,15 +548,10 @@ async def tools_llm_func_feedback(state):
         print("\n")
         print("Screenshot taken.")
         print("\n")
+        print(filtered_output)
+        print("\n")
     except Exception as e:
         print(f"Error in main execution: {e}")
-
-    # Get Code Agent Result
-    print("\n")
-    print("CodeLLM Output:")
-    print("\n")
-    print(filtered_output)
-    print("\n")
 
     return state
 
