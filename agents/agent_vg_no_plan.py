@@ -291,7 +291,7 @@ async def llm_func(state):
                 # other params...
             )
 
-                    # Prepare Image Chain
+            # Prepare Image Chain
             prompt_func_runnable = RunnableLambda(prompt_func)
             chain = prompt_func_runnable | llm_chat
 

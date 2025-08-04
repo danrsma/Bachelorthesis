@@ -74,6 +74,7 @@ class MyState(TypedDict):
 
     # Pass States Through Stategraph
     vision: str
+    visionloop: str
     code: str
     plan: str
     filepath: str
@@ -237,7 +238,7 @@ async def vision_llm_func_feedback(state: MyState) -> MyState:
     print(vision_result.content)
     print("\n")
 
-    state["vision"] = vision_result.content
+    state["visionloop"] = vision_result.content
 
     return state
 
@@ -345,7 +346,7 @@ def code_llm_func_feedback(state):
     prompt_code = """You are an expert in image analysis, 3D modeling, and Blender scripting. 
             Implement the provided graph to create the described Landscape in Blender.
             Furthermore try to minimize the following differences"""
-    code_llm_chat_input = state["plan"]+"\n"+prompt_code+state["vision"]
+    code_llm_chat_input = state["plan"]+"\n"+prompt_code+state["visionloop"]
     code_result = code_llm_chat.invoke(code_llm_chat_input)
 
     print("\n")
