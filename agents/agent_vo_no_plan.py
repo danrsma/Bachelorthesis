@@ -72,6 +72,7 @@ class MyState(TypedDict):
 
     # Pass States Through Stategraph
     vision: str
+    visionloop: str
     filepath: str
     userinput: str
 
@@ -210,7 +211,7 @@ async def vision_llm_func_feedback(state: MyState) -> MyState:
     print(vision_result.content)
     print("\n")
 
-    state["vision"] = vision_result.content
+    state["visionloop"] = vision_result.content
 
     return state
 
@@ -343,7 +344,8 @@ async def tools_llm_func_feedback(state):
     try:
         tool_result = await agent.ainvoke(
             {"messages": [{"role": "user", "content": "You are an expert in image analysis, 3D modeling, and Blender scripting."+
-            " Improve the Scene in Blender to minimize the differences.\n"+state["vision"]        
+            " Improve the Scene in Blender to minimize the differences.\n"+state["visionloop"]+
+            "\n Stick to the description of the scene and try to recreate it.\n"+state["vision"]      
             }]}
         )
 
