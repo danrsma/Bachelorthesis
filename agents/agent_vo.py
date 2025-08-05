@@ -239,8 +239,8 @@ async def plan_llm_func(state):
     if response.status_code == 200:
         data = response.json()
         for asset_id in list(data.keys())[:5]:
-            print(f"{asset_id}: {data[asset_id]['type']}")
-            asset_list+=f"{asset_id}: {data[asset_id]['type']}"
+            print(f"{asset_id}")
+            asset_list+=f"{asset_id}\n"
     else:
         print(f"Request failed with status code {response.status_code}")
 

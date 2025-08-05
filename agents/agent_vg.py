@@ -270,9 +270,9 @@ async def plan_llm_func(state):
     # Check for success
     if response.status_code == 200:
         data = response.json()
-        for asset_id in list(data.keys())[:5]:
-            print(f"{asset_id}: {data[asset_id]['type']}")
-            asset_list+=f"{asset_id}: {data[asset_id]['type']}"
+        for asset_id in list(data.keys()):
+            print(f"{asset_id}")
+            asset_list+=f"{asset_id}\n"
     else:
         print(f"Request failed with status code {response.status_code}")
 
@@ -424,9 +424,9 @@ async def tools_llm_func(state):
     try:
         tool_result = await agent.ainvoke(
             {"messages": [{"role": "user", "content": "You are an expert in image analysis, 3D modeling, and Blender scripting."+
-            "\nExecute the following Blender Python Code:\n"+state["code"]+
-            "\nIf it does not work try to correct the code and reexecute"+               
-            "\nTry to add assets from polyhaven to improve the scene using the graph.\n"+state["plan"]
+            "\nImport all assets you need to execute the script from Polyhaven"+
+            " and execute the following Blender Python Code:\n"+state["code"]+
+            "\nIf it does not work try to correct the code and reexecute"   
             }]}
         )
 
@@ -523,9 +523,9 @@ async def tools_llm_func_feedback(state):
     try:
         tool_result = await agent.ainvoke(
             {"messages": [{"role": "user", "content": "You are an expert in image analysis, 3D modeling, and Blender scripting."+
-            "\nExecute the following Blender Python Code:\n"+state["code"]+
-            "\nIf it does not work try to correct the code and reexecute"+               
-            "\nTry to add assets from polyhaven to improve the scene using the graph.\n"+state["plan"]
+            "\nImport all assets you need to execute the script from Polyhaven"+
+            " and execute the following Blender Python Code:\n"+state["code"]+
+            "\nIf it does not work try to correct the code and reexecute"  
             }]}
         )
 
