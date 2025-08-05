@@ -231,7 +231,7 @@ async def llm_func(state):
             # Set the new camera as the active camera
             bpy.context.scene.camera = cam_object
 
-            bpy.context.scene.render.filepath = "C:\\Users\\cross\\Desktop\\Feedback.png"
+            bpy.context.scene.render.filepath = "C:\\Users\\cross\\Desktop\\Image.png"
             bpy.ops.render.render(write_still=True)
 
                 """
@@ -474,7 +474,7 @@ async def llm_func(state):
             # Set the new camera as the active camera
             bpy.context.scene.camera = cam_object
 
-            bpy.context.scene.render.filepath = "C:\\Users\\cross\\Desktop\\Feedback.png"
+            bpy.context.scene.render.filepath = "C:\\Users\\cross\\Desktop\\Image.png"
             bpy.ops.render.render(write_still=True)
 
                 """
