@@ -14,6 +14,7 @@ import asyncio
 import tkinter as tk
 from tkinter import filedialog
 import re
+import requests
 
 
 class InputApp(tk.Tk):
