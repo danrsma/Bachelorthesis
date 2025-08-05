@@ -271,7 +271,7 @@ async def plan_llm_func(state):
     if response.status_code == 200:
         data = response.json()
         for asset_id in list(data.keys()):
-            asset_list+=f"{asset_id}\n"
+            asset_list+=f"{asset_id}: {data[asset_id]['type']}"
     else:
         print(f"Request failed with status code {response.status_code}")
 
@@ -299,7 +299,7 @@ async def plan_llm_func(state):
         List of relation nodes 'R' with their types and descriptions.
         Edges 'E' that link assests to their corresponding relation nodes.
         This process will guide the Arrangement of assets in the 3D Scene, ensuring they are positioned scaled and oriented correctly according to the description.
-        """+state["vision"]+asset_list
+        """+state["vision"]+asset_list+"\n0: HDRIs,\n1: Textures,\n2: Models"
 
     plan = plan_llm_chat.invoke(prompt)
     filtered_plan = re.sub(r'<think>.*?</think>\s*', '', plan.content, flags=re.DOTALL)
@@ -423,9 +423,7 @@ async def tools_llm_func(state):
     try:
         tool_result = await agent.ainvoke(
             {"messages": [{"role": "user", "content": "You are an expert in image analysis, 3D modeling, and Blender scripting."+
-            "\nImport all assets you need to execute the script from Polyhaven"+
-            " and execute the following Blender Python Code:\n"+state["code"]+
-            "\nIf it does not work try to correct the code and reexecute"   
+            "\nExecute the following Blender Python Code:\n"+state["code"]
             }]}
         )
 
@@ -522,9 +520,9 @@ async def tools_llm_func_feedback(state):
     try:
         tool_result = await agent.ainvoke(
             {"messages": [{"role": "user", "content": "You are an expert in image analysis, 3D modeling, and Blender scripting."+
-            "\nImport all assets you need to execute the script from Polyhaven"+
-            " and execute the following Blender Python Code:\n"+state["code"]+
-            "\nIf it does not work try to correct the code and reexecute"  
+            "\nExecute the following Blender Python Code:\n"+state["code"]+
+            "\nIf it does not work try to correct the code and reexecute"+               
+            "\nTry to add assets from polyhaven to improve the scene using the graph.\n"+state["plan"]
             }]}
         )
 
