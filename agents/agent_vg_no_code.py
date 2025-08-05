@@ -76,7 +76,6 @@ class MyState(TypedDict):
     # Pass States Through Stategraph
     vision: str
     visionloop: str
-    code: str
     plan: str
     filepath: str
     userinput: str
@@ -314,68 +313,6 @@ async def plan_llm_func(state):
     state["plan"] = filtered_plan
     return state
 
-def code_llm_func(state):
-
-    # Create LLM Agent
-    if "GOOGLE_API_KEY" not in os.environ:
-        os.environ["GOOGLE_API_KEY"] = API_KEY
-    
-    code_llm_chat = ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash",
-        temperature=0,
-        max_tokens=10000,
-        timeout=None,
-        max_retries=2,
-        # other params...
-    )
-
-
-    # Get Agent Result
-    prompt_code = """You are an expert in image analysis, 3D modeling, and Blender scripting. 
-            Implement the provided graph to create the described Landscape in Blender."""
-    code_llm_chat_input = state["plan"]+"\n"+prompt_code
-    code_result = code_llm_chat.invoke(code_llm_chat_input)
-
-    print("\n")
-    print("CodeLLM Output:")
-    print("\n")
-    print(code_result.content)
-    print("\n")
-    state["code"] = code_result.content
-
-    return state
-
-def code_llm_func_feedback(state):
-
-    # Create LLM Agent
-    if "GOOGLE_API_KEY" not in os.environ:
-        os.environ["GOOGLE_API_KEY"] = API_KEY
-    
-    code_llm_chat = ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash",
-        temperature=0,
-        max_tokens=10000,
-        timeout=None,
-        max_retries=2,
-        # other params...
-    )
-
-    # Get Agent Result
-    prompt_code = """You are an expert in image analysis, 3D modeling, and Blender scripting. 
-            Implement the provided graph to create the described Landscape in Blender.
-            Furthermore try to minimize the following differences"""
-    code_llm_chat_input = state["plan"]+"\n"+prompt_code+state["visionloop"]
-    code_result = code_llm_chat.invoke(code_llm_chat_input)
-
-    print("\n")
-    print("CodeLLM Output:")
-    print("\n")
-    print(code_result.content)
-    print("\n")
-    state["code"] = code_result.content
-
-    return state
-
 
 async def tools_llm_func(state):
 
@@ -423,8 +360,7 @@ async def tools_llm_func(state):
     try:
         tool_result = await agent.ainvoke(
             {"messages": [{"role": "user", "content": "You are an expert in image analysis, 3D modeling, and Blender scripting."+
-            "\nExecute the following Blender Python Code:\n"+state["code"]+
-            "\nIf it does not work try to fix and reexecute it."
+            "\nRecreate the scene by implementing the following Plan in Blender:\n"+state["plan"]
             }]}
         )
 
@@ -521,8 +457,8 @@ async def tools_llm_func_feedback(state):
     try:
         tool_result = await agent.ainvoke(
             {"messages": [{"role": "user", "content": "You are an expert in image analysis, 3D modeling, and Blender scripting."+
-            "\nExecute the following Blender Python Code:\n"+state["code"]+
-            "\nIf it does not work try to fix and reexecute it."
+            "\nTry to minimize the differences from:\n"+state["visionloop"]+
+            "\nStick to the Plan:\n"+state["plan"]
             }]}
         )
 
@@ -600,13 +536,11 @@ async def main():
     # Create StateGraph With Nodes And Edges
     graph = StateGraph(MyState)
     graph.add_node("vision_llm", vision_llm_func)
-    graph.add_node("code_llm", code_llm_func)
     graph.add_node("plan_llm",plan_llm_func)
     graph.add_node("tools_llm", tools_llm_func)
     graph.add_edge(START,"vision_llm")
     graph.add_edge("vision_llm", "plan_llm")
-    graph.add_edge("plan_llm","code_llm")
-    graph.add_edge("code_llm", "tools_llm")
+    graph.add_edge("plan_llm","tools_llm")
     graph.add_edge("tools_llm",END)
     graph = graph.compile()
 
@@ -617,11 +551,9 @@ async def main():
     # Create StateGraph With Nodes And Edges for Feedback Loop
     graph = StateGraph(MyState)
     graph.add_node("vision_llm", vision_llm_func_feedback)
-    graph.add_node("code_llm", code_llm_func_feedback)
     graph.add_node("tools_llm", tools_llm_func_feedback)
     graph.add_edge(START,"vision_llm")
-    graph.add_edge("vision_llm", "code_llm")
-    graph.add_edge("code_llm", "tools_llm")
+    graph.add_edge("vision_llm", "tools_llm")
     graph.add_edge("tools_llm",END)
     graph = graph.compile()
 
