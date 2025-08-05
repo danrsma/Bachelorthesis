@@ -215,24 +215,24 @@ async def llm_func(state):
 
             # Make Viewport Screenshot
             screenshot_code = """
-                import bpy
+            import bpy
 
-                # Create a new camera object
-                cam_data = bpy.data.cameras.new(name="MyCamera")
-                cam_object = bpy.data.objects.new("MyCamera", cam_data)
+            # Create a new camera object
+            cam_data = bpy.data.cameras.new(name="MyCamera")
+            cam_object = bpy.data.objects.new("MyCamera", cam_data)
 
-                # Set camera location and rotation
-                cam_object.location = (0, -10, 7)
-                cam_object.rotation_euler = (1.1, 0, 0)
+            # Set camera location and rotation
+            cam_object.location = (30, 0, 15)
+            cam_object.rotation_euler = (1.3, 0, 1.57)
 
-                # Link the camera to the current scene
-                bpy.context.collection.objects.link(cam_object)
+            # Link the camera to the current scene
+            bpy.context.collection.objects.link(cam_object)
 
-                # Set the new camera as the active camera
-                bpy.context.scene.camera = cam_object
+            # Set the new camera as the active camera
+            bpy.context.scene.camera = cam_object
 
-                bpy.context.scene.render.filepath = "C:\\Users\\cross\\Desktop\\Image.png"
-                bpy.ops.render.render(write_still=True)
+            bpy.context.scene.render.filepath = "C:\\Users\\cross\\Desktop\\Feedback.png"
+            bpy.ops.render.render(write_still=True)
 
                 """
             try:
@@ -342,24 +342,24 @@ async def llm_func(state):
 
             # Make Viewport Screenshot
             screenshot_code = """
-                import bpy
+            import bpy
 
-                # Create a new camera object
-                cam_data = bpy.data.cameras.new(name="MyCamera")
-                cam_object = bpy.data.objects.new("MyCamera", cam_data)
+            # Create a new camera object
+            cam_data = bpy.data.cameras.new(name="MyCamera")
+            cam_object = bpy.data.objects.new("MyCamera", cam_data)
 
-                # Set camera location and rotation
-                cam_object.location = (0, -10, 7)
-                cam_object.rotation_euler = (1.1, 0, 0)
+            # Set camera location and rotation
+            cam_object.location = (30, 0, 15)
+            cam_object.rotation_euler = (1.3, 0, 1.57)
 
-                # Link the camera to the current scene
-                bpy.context.collection.objects.link(cam_object)
+            # Link the camera to the current scene
+            bpy.context.collection.objects.link(cam_object)
 
-                # Set the new camera as the active camera
-                bpy.context.scene.camera = cam_object
+            # Set the new camera as the active camera
+            bpy.context.scene.camera = cam_object
 
-                bpy.context.scene.render.filepath = "C:\\Users\\cross\\Desktop\\Feedback.png"
-                bpy.ops.render.render(write_still=True)
+            bpy.context.scene.render.filepath = "C:\\Users\\cross\\Desktop\\Feedback.png"
+            bpy.ops.render.render(write_still=True)
 
                 """
             try:
@@ -458,24 +458,24 @@ async def llm_func(state):
 
             # Make Viewport Screenshot
             screenshot_code = """
-                import bpy
+            import bpy
 
-                # Create a new camera object
-                cam_data = bpy.data.cameras.new(name="MyCamera")
-                cam_object = bpy.data.objects.new("MyCamera", cam_data)
+            # Create a new camera object
+            cam_data = bpy.data.cameras.new(name="MyCamera")
+            cam_object = bpy.data.objects.new("MyCamera", cam_data)
 
-                # Set camera location and rotation
-                cam_object.location = (0, -10, 7)
-                cam_object.rotation_euler = (1.1, 0, 0)
+            # Set camera location and rotation
+            cam_object.location = (30, 0, 15)
+            cam_object.rotation_euler = (1.3, 0, 1.57)
 
-                # Link the camera to the current scene
-                bpy.context.collection.objects.link(cam_object)
+            # Link the camera to the current scene
+            bpy.context.collection.objects.link(cam_object)
 
-                # Set the new camera as the active camera
-                bpy.context.scene.camera = cam_object
+            # Set the new camera as the active camera
+            bpy.context.scene.camera = cam_object
 
-                bpy.context.scene.render.filepath = "C:\\Users\\cross\\Desktop\\Image.png"
-                bpy.ops.render.render(write_still=True)
+            bpy.context.scene.render.filepath = "C:\\Users\\cross\\Desktop\\Feedback.png"
+            bpy.ops.render.render(write_still=True)
 
                 """
             try:
@@ -586,24 +586,24 @@ async def llm_func(state):
 
             # Make Viewport Screenshot
             screenshot_code = """
-                import bpy
+            import bpy
 
-                # Create a new camera object
-                cam_data = bpy.data.cameras.new(name="MyCamera")
-                cam_object = bpy.data.objects.new("MyCamera", cam_data)
+            # Create a new camera object
+            cam_data = bpy.data.cameras.new(name="MyCamera")
+            cam_object = bpy.data.objects.new("MyCamera", cam_data)
 
-                # Set camera location and rotation
-                cam_object.location = (0, -10, 7)
-                cam_object.rotation_euler = (1.1, 0, 0)
+            # Set camera location and rotation
+            cam_object.location = (30, 0, 15)
+            cam_object.rotation_euler = (1.3, 0, 1.57)
 
-                # Link the camera to the current scene
-                bpy.context.collection.objects.link(cam_object)
+            # Link the camera to the current scene
+            bpy.context.collection.objects.link(cam_object)
 
-                # Set the new camera as the active camera
-                bpy.context.scene.camera = cam_object
+            # Set the new camera as the active camera
+            bpy.context.scene.camera = cam_object
 
-                bpy.context.scene.render.filepath = "C:\\Users\\cross\\Desktop\\Feedback.png"
-                bpy.ops.render.render(write_still=True)
+            bpy.context.scene.render.filepath = "C:\\Users\\cross\\Desktop\\Feedback.png"
+            bpy.ops.render.render(write_still=True)
 
                 """
             try:
