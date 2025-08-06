@@ -113,7 +113,7 @@ async def vision_llm_func(state: MyState) -> MyState:
     if file_path == "":
         # Create Vision Agent Chain
         vision_llm_chat = ChatOllama(
-            model="gemma3:12b",
+            model="llama4:maverick",
             base_url="http://localhost:11434",
             temperature=0.5,
         )
@@ -145,7 +145,7 @@ async def vision_llm_func(state: MyState) -> MyState:
 
     # Create Vision Agent Chain
     vision_llm_chat = ChatOllama(
-        model="gemma3:12b",
+        model="llama4:maverick",
         temperature=0.9,
     )
 
@@ -188,7 +188,7 @@ async def vision_llm_func_feedback(state: MyState) -> MyState:
 
     # Create Vision Agent Chain
     vision_llm_chat = ChatOllama(
-        model="gemma3:12b",
+        model="llama4:maverick",
         temperature=0.9,
     )
 
@@ -240,7 +240,7 @@ async def tools_llm_func(state):
     
     # Create Llm Chat
     tools_llm_chat = ChatOllama(
-        model="qwen3:",
+        model="gpt-oss:120b",
         temperature=0.0,
     )
     
@@ -324,7 +324,7 @@ async def tools_llm_func_feedback(state):
     
     # Create Llm Chat
     tools_llm_chat = ChatOllama(
-        model="gpt-oss:20b",
+        model="gpt-oss:120b",
         temperature=0.0,
     )
     

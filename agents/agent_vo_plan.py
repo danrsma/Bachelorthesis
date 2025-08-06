@@ -201,6 +201,7 @@ async def vision_llm_func_feedback(state: MyState) -> MyState:
             Provide a detailed comparison of the image and the discription.
             Mark out all the differences.
             """+state["vision"]
+    
     # Get Agent Chain Result
     vision_result = chain.invoke({
         "text": prompt_vision_loop,
@@ -221,7 +222,7 @@ async def plan_llm_func(state):
 
     # Create Plan Agent
     plan_llm_chat = ChatOllama(
-        model="llama4:maverick",
+        model="deepseek-r1:671b",
         temperature=0.0,
     )
     

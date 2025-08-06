@@ -5,6 +5,7 @@ from langchain_mcp_adapters.client import MultiServerMCPClient
 from langchain_core.runnables import RunnableLambda
 from langgraph.prebuilt import create_react_agent
 from langgraph.graph import StateGraph, START, END
+from langchain_google_genai import ChatGoogleGenerativeAI
 
 from typing import TypedDict
 import base64
@@ -14,6 +15,7 @@ import asyncio
 import tkinter as tk
 from tkinter import filedialog
 import re
+import os
 import requests
 
 
@@ -220,10 +222,17 @@ async def vision_llm_func_feedback(state: MyState) -> MyState:
 
 async def plan_llm_func(state):
 
-    # Create Plan Agent
-    plan_llm_chat = ChatOllama(
-        model="llama4:maverick",
-        temperature=0.0,
+    # Create LLM Agent
+    if "GOOGLE_API_KEY" not in os.environ:
+        os.environ["GOOGLE_API_KEY"] = API_KEY
+    
+    plan_llm_chat = ChatGoogleGenerativeAI(
+        model="gemini-2.5-flash",
+        temperature=0,
+        max_tokens=10000,
+        timeout=None,
+        max_retries=2,
+        # other params...
     )
     
     # API endpoint
@@ -290,7 +299,7 @@ def code_llm_func(state):
 
     # Create Code Agent
     code_llm_chat = ChatOllama(
-        model="qwen3:235b",
+        model="deepseek-coder-v2:236b",
         temperature=0.9,
     )
     
@@ -314,7 +323,7 @@ def code_llm_func_feedback(state):
 
     # Create Code Agent
     code_llm_chat = ChatOllama(
-        model="qwen3:235b",
+        model="deepseek-coder-v2:236b",
         temperature=0.9,
     )
 
@@ -595,5 +604,6 @@ async def main():
 
 if __name__ == "__main__":
     # Run the example
+    API_KEY = ""
     asyncio.run(main())
     
