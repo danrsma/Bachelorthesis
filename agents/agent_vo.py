@@ -268,7 +268,7 @@ async def plan_llm_func(state):
         List of relation nodes 'R' with their types and descriptions.
         Edges 'E' that link assests to their corresponding relation nodes.
         This process will guide the Arrangement of assets in the 3D Scene, ensuring they are positioned scaled and oriented correctly according to the description.
-        """+state["vision"]+asset_list+"\n0: HDRIs,\n1: Textures,\n2: Models"
+        """+state["vision"]+"\n"+asset_list+"\n0: HDRIs,\n1: Textures,\n2: Models"
 
     plan = plan_llm_chat.invoke(prompt)
     filtered_plan = re.sub(r'<think>.*?</think>\s*', '', plan.content, flags=re.DOTALL)

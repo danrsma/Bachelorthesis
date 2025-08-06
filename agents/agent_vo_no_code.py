@@ -221,7 +221,7 @@ async def plan_llm_func(state):
 
     # Create Plan Agent
     plan_llm_chat = ChatOllama(
-        model="llama4:scout",
+        model="llama4:maverick",
         temperature=0.0,
     )
     
@@ -247,7 +247,7 @@ async def plan_llm_func(state):
     # Create Plan
     prompt = """You are an expert in image analysis, 3D modeling, and Blender scripting.
         1.Review the Scene description and the list of assets.
-        2.Plan how to arange the selected assets to recreate the scnene.
+        2.Plan the arangment of the selected assets to recreate the scnene.\n
         """+state["vision"]+asset_list+"\n0: HDRIs,\n1: Textures,\n2: Models"
 
     plan = plan_llm_chat.invoke(prompt)
