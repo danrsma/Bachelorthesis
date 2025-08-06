@@ -222,28 +222,10 @@ async def plan_llm_func(state):
 
     # Create Plan Agent
     plan_llm_chat = ChatOllama(
-        model="llama4:scout",
+        model="llama4:maverick",
         temperature=0.0,
     )
     
-    # API endpoint
-    url = "https://api.polyhaven.com/assets"
-
-    # Send GET request without headers
-    response = requests.get(url)
-
-    # Define asset List
-    asset_list = ""
-
-    # Check for success
-    if response.status_code == 200:
-        data = response.json()
-        for asset_id in list(data.keys()):
-            asset_list+=f"{asset_id}: {data[asset_id]['type']}\n"
-    else:
-        print(f"Request failed with status code {response.status_code}")
-
-
 
     # Create Plan
     prompt = """You are tasked with constructing a relational bipartite graph for 3D Scene based on the provided description and assetlist.
@@ -268,7 +250,7 @@ async def plan_llm_func(state):
         List of relation nodes 'R' with their types and descriptions.
         Edges 'E' that link assests to their corresponding relation nodes.
         This process will guide the Arrangement of assets in the 3D Scene, ensuring they are positioned scaled and oriented correctly according to the description.
-        """+state["vision"]+"\n"+asset_list+"\n0: HDRIs,\n1: Textures,\n2: Models"
+        """+state["vision"]
 
     plan = plan_llm_chat.invoke(prompt)
     filtered_plan = re.sub(r'<think>.*?</think>\s*', '', plan.content, flags=re.DOTALL)
@@ -287,14 +269,14 @@ def code_llm_func(state):
 
     # Create Code Agent
     code_llm_chat = ChatOllama(
-        model="llama4:maverick",
+        model="qwen3:235b",
         temperature=0.9,
     )
-
+    
 
     # Get Agent Result
     prompt_code = """You are an expert in image analysis, 3D modeling, and Blender scripting. 
-            Implement the provided graph to create the described Landscape in Blender."""
+            Implement the provided graph and asset list to create the described Landscape in Blender."""
     code_llm_chat_input = state["plan"]+"\n"+prompt_code
     code_result = code_llm_chat.invoke(code_llm_chat_input)
 
@@ -311,14 +293,14 @@ def code_llm_func_feedback(state):
 
     # Create Code Agent
     code_llm_chat = ChatOllama(
-        model="llama4:maverick",
+        model="qwen3:235b",
         temperature=0.9,
     )
 
 
     # Get Agent Result
     prompt_code = """You are an expert in image analysis, 3D modeling, and Blender scripting. 
-            Implement the provided graph to create the described Landscape in Blender.
+            Implement the provided graph and asset list to create the described Landscape in Blender.
             Furthermore try to minimize the following differences"""
     code_llm_chat_input = state["plan"]+"\n"+prompt_code+state["visionloop"]
     code_result = code_llm_chat.invoke(code_llm_chat_input)

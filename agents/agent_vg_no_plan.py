@@ -664,7 +664,7 @@ async def main():
     time.sleep(10)
 
     # Start Rendering Loop
-    for i in range(4):
+    for i in range(9):
         print("\n")
         print(f"++++++++++++++++++++++++++++++")
         print(f"+ Feedback Loop iteration: {str(i+2)} +")

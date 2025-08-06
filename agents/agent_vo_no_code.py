@@ -224,31 +224,31 @@ async def plan_llm_func(state):
         model="llama4:maverick",
         temperature=0.0,
     )
-    
-    # API endpoint
-    url = "https://api.polyhaven.com/assets"
-
-    # Send GET request without headers
-    response = requests.get(url)
-
-    # Define asset List
-    asset_list = ""
-
-    # Check for success
-    if response.status_code == 200:
-        data = response.json()
-        for asset_id in list(data.keys()):
-            asset_list+=f"{asset_id}: {data[asset_id]['type']}\n"
-    else:
-        print(f"Request failed with status code {response.status_code}")
-
-
 
     # Create Plan
-    prompt = """You are an expert in image analysis, 3D modeling, and Blender scripting.
+    prompt = """You are tasked with constructing a relational bipartite graph for 3D Scene based on the provided description and assetlist.
         1.Review the Scene description and the list of assets.
-        2.Plan the arangment of the selected assets to recreate the scnene.\n
-        """+state["vision"]+asset_list+"\n0: HDRIs,\n1: Textures,\n2: Models"
+        2.Determine the spatial and contextual relionships needed to accurateley represent the scene's layout. Consider Relationships like:
+        -Proximity: A constraint enforcing the closeness of two objects, e.g., a chair near a table.
+        -Direction: The angle of one object is targeting at the other.
+        -Alignment: Ensuring objects align along a common axis, e.g., paintings aligned vertically on a wall.
+        -Symmetry: Mirroring objects along an axis, e.g., symmetrical placement of lamps on either side of a bed.
+        -Overlap: One object partially covering another, creating depth, e.g., a rug under a coffee table.
+        -Parallelism: Objects parallel to each other, suggesting direction, e.g., parallel rows of seats in a theater.
+        -Perpendicularity: Objects intersecting at a right angle, e.g., a bookshelf perpendicular to a desk.
+        -Hierarchy: Indicating a list of objects follow a certain order of size / volumns.
+        -Rotation: a list of objects rotate a cirtain point, e.g., rotating chairs around a meeting table.
+        -Repetition: Repeating patterns for rhythm or emphasis, e.g., a sequence oft street lights.
+        -Scaling: Adjusting object sizes for depth or focus, e.g., smaller background trees to create depth perception
+        Construct the relational bipartite graph 'G(s)=(A,R,E)' where:
+        -A represents the set of assets.
+        -R represents the set of Relations as nodes.
+        -E represents the edges connecting a relation node to a subset of assets 'E(r)' in the Scene that satisfies this relation.
+        Output your findings in a structured Format:
+        List of relation nodes 'R' with their types and descriptions.
+        Edges 'E' that link assests to their corresponding relation nodes.
+        This process will guide the Arrangement of assets in the 3D Scene, ensuring they are positioned scaled and oriented correctly according to the description.
+        """+state["vision"]
 
     plan = plan_llm_chat.invoke(prompt)
     filtered_plan = re.sub(r'<think>.*?</think>\s*', '', plan.content, flags=re.DOTALL)
@@ -397,7 +397,7 @@ async def tools_llm_func_feedback(state):
     # Get Agent Result
     try:
         tool_result = await agent.ainvoke(
-            {"messages": [{"role": "user", "content": "You are an expert in image analysis, 3D modeling, and Blender scripting."+
+            {"messages": [{"role": "tool", "content": "You are an expert in image analysis, 3D modeling, and Blender scripting."+
             "\nTry to improve the scene according to the differences noted:\n"+state["vision"]+
             "\nStick to the Plan:\n"+state["plan"]+
             "\nIf it does not work try to fix and reexecute it."      
@@ -435,7 +435,7 @@ async def tools_llm_func_feedback(state):
         """
     try:
         tool_result = await agent.ainvoke(
-            {"messages": [{"role": "user", "content": "Execute the following Blender Python Code:\n"+screenshot_code+
+            {"messages": [{"role": "tool", "content": "Execute the following Blender Python Code:\n"+screenshot_code+
             "\nIf it does not work try to fix and reexecute it."}]}
         )
         print("\n")

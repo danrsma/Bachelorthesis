@@ -240,7 +240,7 @@ async def tools_llm_func(state):
     
     # Create Llm Chat
     tools_llm_chat = ChatOllama(
-        model="gpt-oss:20b",
+        model="qwen3:",
         temperature=0.0,
     )
     
@@ -254,7 +254,7 @@ async def tools_llm_func(state):
     # Get Agent Result
     try:
         tool_result = await agent.ainvoke(
-            {"messages": [{"role": "user", "content": "You are an expert in image analysis, 3D modeling, and Blender scripting."+
+            {"messages": [{"role": "tool", "content": "You are an expert in image analysis, 3D modeling, and Blender scripting."+
             "Recreate the provided Scene in Blender. Use Polyhaven assets and Blender Code Execution.\n"+state["vision"]        
             }]}
         )
@@ -286,7 +286,7 @@ async def tools_llm_func(state):
         """
     try:
         tool_result = await agent.ainvoke(
-            {"messages": [{"role": "user", "content": "Execute the following Blender Python Code:\n"+screenshot_code+
+            {"messages": [{"role": "tool", "content": "Execute the following Blender Python Code:\n"+screenshot_code+
             "\nIf it does not work try to fix and reexecute it."}]}
         )
         print("\n")
@@ -438,7 +438,7 @@ async def main():
     input_state = output_state
     
     # Start Feedback Loop
-    for i in range(19):
+    for i in range(9):
         print("\n")
         print(f"++++++++++++++++++++++++++++++")
         print(f"+ Feedback Loop iteration: {str(i+2)} +")

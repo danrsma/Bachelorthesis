@@ -299,7 +299,7 @@ async def plan_llm_func(state):
         List of relation nodes 'R' with their types and descriptions.
         Edges 'E' that link assests to their corresponding relation nodes.
         This process will guide the Arrangement of assets in the 3D Scene, ensuring they are positioned scaled and oriented correctly according to the description.
-        """+state["vision"]+"\n"+asset_list+"\n0: HDRIs,\n1: Textures,\n2: Models"
+        """+state["vision"]
 
     plan = plan_llm_chat.invoke(prompt)
     filtered_plan = re.sub(r'<think>.*?</think>\s*', '', plan.content, flags=re.DOTALL)
@@ -311,7 +311,30 @@ async def plan_llm_func(state):
     print(filtered_plan)
     print("\n")
 
-    state["plan"] = filtered_plan
+    # API endpoint
+    url = "https://api.polyhaven.com/assets"
+
+    # Send GET request without headers
+    response = requests.get(url)
+
+    # Define asset List
+    asset_list = ""
+
+    # Check for success
+    if response.status_code == 200:
+        data = response.json()
+        for asset_id in list(data.keys()):
+            if(data[asset_id]['type']==0):
+                asset_list+=f"{asset_id}: HDRI, "
+            if(data[asset_id]['type']==1):
+                asset_list+=f"{asset_id}: Texture, "
+            else:
+                asset_list+=f"{asset_id}: Model, "
+    else:
+        print(f"Request failed with status code {response.status_code}")
+
+
+    state["plan"] = filtered_plan+"\n"+asset_list
     return state
 
 def code_llm_func(state):
@@ -431,9 +454,6 @@ async def tools_llm_func(state):
     except Exception as e:
         print(f"Error in main execution: {e}")
 
-    ai_messages = [m for m in tool_result["messages"] if isinstance(m, AIMessage)]
-    full_output = "\n\n".join(m.content for m in ai_messages)
-    filtered_output = re.sub(r'<think>.*?</think>\s*', '', full_output, flags=re.DOTALL)
 
     # Make Viewport Screenshot
     screenshot_code = """
@@ -467,8 +487,7 @@ async def tools_llm_func(state):
         print("\n")
         print("Screenshot taken.")
         print("\n")
-        print(filtered_output)
-        print("\n")
+
     except Exception as e:
         print(f"Error in main execution: {e}")
 
@@ -529,10 +548,6 @@ async def tools_llm_func_feedback(state):
     except Exception as e:
         print(f"Error in main execution: {e}")
 
-    ai_messages = [m for m in tool_result["messages"] if isinstance(m, AIMessage)]
-    full_output = "\n\n".join(m.content for m in ai_messages)
-    filtered_output = re.sub(r'<think>.*?</think>\s*', '', full_output, flags=re.DOTALL)
-
     # Make Viewport Screenshot
     screenshot_code = """
         import bpy
@@ -565,8 +580,7 @@ async def tools_llm_func_feedback(state):
         print("\n")
         print("Screenshot taken.")
         print("\n")
-        print(filtered_output)
-        print("\n")
+
     except Exception as e:
         print(f"Error in main execution: {e}")
 
@@ -633,7 +647,7 @@ async def main():
     time.sleep(10)
     
     # Start Feedback Loop
-    for i in range(4):
+    for i in range(9):
         print("\n")
         print(f"++++++++++++++++++++++++++++++")
         print(f"+ Feedback Loop iteration: {str(i+2)} +")
