@@ -76,6 +76,8 @@ class MyState(TypedDict):
     # Pass States Through Stategraph
     vision: str
     visionloop: str
+    iter: str
+    code: str
     plan: str
     filepath: str
     userinput: str
@@ -279,6 +281,7 @@ async def plan_llm_func(state):
     else:
         print(f"Request failed with status code {response.status_code}")
 
+
     # Create Plan
     prompt = f"""You are tasked with constructing a relational bipartite graph for 3D Scene based on the provided description and assetlist.
         1.Review the Scene description and the list of assets.
@@ -314,7 +317,70 @@ async def plan_llm_func(state):
     print(filtered_plan)
     print("\n")
 
+
     state["plan"] = filtered_plan
+    return state
+
+def code_llm_func(state):
+
+    # Create LLM Agent
+    if "GOOGLE_API_KEY" not in os.environ:
+        os.environ["GOOGLE_API_KEY"] = API_KEY
+    
+    code_llm_chat = ChatGoogleGenerativeAI(
+        model="gemini-2.5-flash",
+        temperature=0,
+        max_tokens=10000,
+        timeout=None,
+        max_retries=2,
+        # other params...
+    )
+
+
+    # Get Agent Result
+    prompt_code = """You are an expert in image analysis, 3D modeling, and Blender scripting. 
+            Implement the provided graph to create the described Landscape in Blender."""
+    code_llm_chat_input = state["plan"]+"\n"+prompt_code
+    code_result = code_llm_chat.invoke(code_llm_chat_input)
+
+    print("\n")
+    print("CodeLLM Output:")
+    print("\n")
+    print(code_result.content)
+    print("\n")
+    state["code"] = code_result.content
+
+    return state
+
+def code_llm_func_feedback(state):
+
+    # Create LLM Agent
+    if "GOOGLE_API_KEY" not in os.environ:
+        os.environ["GOOGLE_API_KEY"] = API_KEY
+    
+    code_llm_chat = ChatGoogleGenerativeAI(
+        model="gemini-2.5-flash",
+        temperature=0,
+        max_tokens=10000,
+        timeout=None,
+        max_retries=2,
+        # other params...
+    )
+
+    # Get Agent Result
+    prompt_code = """You are an expert in image analysis, 3D modeling, and Blender scripting. 
+            Implement the provided graph to create the described Landscape in Blender.
+            Furthermore try to minimize the following differences"""
+    code_llm_chat_input = state["plan"]+"\n"+prompt_code+state["visionloop"]
+    code_result = code_llm_chat.invoke(code_llm_chat_input)
+
+    print("\n")
+    print("CodeLLM Output:")
+    print("\n")
+    print(code_result.content)
+    print("\n")
+    state["code"] = code_result.content
+
     return state
 
 
@@ -364,21 +430,18 @@ async def tools_llm_func(state):
     try:
         tool_result = await agent.ainvoke(
             {"messages": [{"role": "user", "content": "You are an expert in image analysis, 3D modeling, and Blender scripting."+
-            "\nRecreate the Scene according to the plan and description in Blender:\n"+state["vision"]+state["plan"]+
-            "\nIf it does not work try to fix and reexecute it."           
+            "\nExecute the following Blender Python Code:\n"+state["code"]+
+            "\nIf it does not work try to fix and reexecute it."
             }]}
         )
-
 
     except Exception as e:
         print(f"Error in main execution: {e}")
 
-    ai_messages = [m for m in tool_result["messages"] if isinstance(m, AIMessage)]
-    full_output = "\n\n".join(m.content for m in ai_messages)
-    filtered_output = re.sub(r'<think>.*?</think>\s*', '', full_output, flags=re.DOTALL)
 
     # Make Viewport Screenshot
-    screenshot_code = """
+    iter=state["iter"]
+    screenshot_code = f"""
         import bpy
 
         # Create a new camera object
@@ -395,7 +458,7 @@ async def tools_llm_func(state):
         # Set the new camera as the active camera
         bpy.context.scene.camera = cam_object
 
-        bpy.context.scene.render.filepath = "C:\\Users\\cross\\Desktop\\Image.png"
+        bpy.context.scene.render.filepath = "C:\\Users\\cross\\Desktop\\Feedback_{iter}.png"
         bpy.ops.render.render(write_still=True)
 
         """
@@ -409,8 +472,7 @@ async def tools_llm_func(state):
         print("\n")
         print("Screenshot taken.")
         print("\n")
-        print(filtered_output)
-        print("\n")
+
     except Exception as e:
         print(f"Error in main execution: {e}")
 
@@ -463,21 +525,17 @@ async def tools_llm_func_feedback(state):
     try:
         tool_result = await agent.ainvoke(
             {"messages": [{"role": "user", "content": "You are an expert in image analysis, 3D modeling, and Blender scripting."+
-            "\nTry to improve the scene according to the differences noted:\n"+state["visionloop"]+
-            "\nStick to the Plan and Description:\n"+state["plan"]+state["vision"]+
-            "\nIf it does not work try to fix and reexecute it."      
+            "\nExecute the following Blender Python Code:\n"+state["code"]+
+            "\nIf it does not work try to fix and reexecute it."
             }]}
         )
 
     except Exception as e:
         print(f"Error in main execution: {e}")
 
-    ai_messages = [m for m in tool_result["messages"] if isinstance(m, AIMessage)]
-    full_output = "\n\n".join(m.content for m in ai_messages)
-    filtered_output = re.sub(r'<think>.*?</think>\s*', '', full_output, flags=re.DOTALL)
-
     # Make Viewport Screenshot
-    screenshot_code = """
+    iter=state["iter"]
+    screenshot_code = f"""
         import bpy
 
         # Create a new camera object
@@ -494,7 +552,7 @@ async def tools_llm_func_feedback(state):
         # Set the new camera as the active camera
         bpy.context.scene.camera = cam_object
 
-        bpy.context.scene.render.filepath = "C:\\Users\\cross\\Desktop\\Feedback.png"
+        bpy.context.scene.render.filepath = "C:\\Users\\cross\\Desktop\\Feedback_{iter}.png"
         bpy.ops.render.render(write_still=True)
 
         """
@@ -508,8 +566,7 @@ async def tools_llm_func_feedback(state):
         print("\n")
         print("Screenshot taken.")
         print("\n")
-        print(filtered_output)
-        print("\n")
+
     except Exception as e:
         print(f"Error in main execution: {e}")
 
@@ -543,49 +600,53 @@ async def main():
     # Create StateGraph With Nodes And Edges
     graph = StateGraph(MyState)
     graph.add_node("vision_llm", vision_llm_func)
+    graph.add_node("code_llm", code_llm_func)
     graph.add_node("plan_llm",plan_llm_func)
     graph.add_node("tools_llm", tools_llm_func)
     graph.add_edge(START,"vision_llm")
     graph.add_edge("vision_llm", "plan_llm")
-    graph.add_edge("plan_llm","tools_llm")
+    graph.add_edge("plan_llm","code_llm")
+    graph.add_edge("code_llm", "tools_llm")
     graph.add_edge("tools_llm",END)
     graph = graph.compile()
 
     # Get StateGraph Output State
-    input_state = MyState(userinput=user_input,filepath=file_path)
+    input_state = MyState(userinput=user_input,filepath=file_path,iter="1")
     output_state = await graph.ainvoke(input_state, config={"recursion_limit": 150})
 
     # Create StateGraph With Nodes And Edges for Feedback Loop
     graph = StateGraph(MyState)
     graph.add_node("vision_llm", vision_llm_func_feedback)
+    graph.add_node("code_llm", code_llm_func_feedback)
     graph.add_node("tools_llm", tools_llm_func_feedback)
     graph.add_edge(START,"vision_llm")
-    graph.add_edge("vision_llm", "tools_llm")
+    graph.add_edge("vision_llm", "code_llm")
+    graph.add_edge("code_llm", "tools_llm")
     graph.add_edge("tools_llm",END)
     graph = graph.compile()
 
     # Prepare Rendering Loop
     time.sleep(10)
-    file_path_loop = "C:\\Users\\cross\\Desktop\\Image.png"
+    file_path_loop = "C:\\Users\\cross\\Desktop\\Feedback_1.png"
     output_state["filepath"] = file_path_loop
     input_state = output_state
     time.sleep(10)
     
     # Start Feedback Loop
-    for i in range(4):
+    for i in range(9):
         print("\n")
         print(f"++++++++++++++++++++++++++++++")
         print(f"+ Feedback Loop iteration: {str(i+2)} +")
         print(f"++++++++++++++++++++++++++++++")
         print("\n")
         time.sleep(10)
+        input_state["iter"]=str(i+2)
         output_state = await graph.ainvoke(input_state, config={"recursion_limit": 150})
         time.sleep(10)
-        file_path_loop = "C:\\Users\\cross\\Desktop\\Feedback.png"
+        file_path_loop = f"C:\\Users\\cross\\Desktop\\Feedback_{str(i+2)}.png"
         output_state["filepath"] = file_path_loop
         input_state = output_state
         time.sleep(10)
-
 
 if __name__ == "__main__":
     # Run the example
