@@ -5,7 +5,6 @@ from langchain_mcp_adapters.client import MultiServerMCPClient
 from langchain_core.runnables import RunnableLambda
 from langgraph.prebuilt import create_react_agent
 from langgraph.graph import StateGraph, START, END
-from langchain_google_genai import ChatGoogleGenerativeAI
 
 from typing import TypedDict
 import base64
@@ -15,7 +14,6 @@ import asyncio
 import tkinter as tk
 from tkinter import filedialog
 import re
-import os
 import requests
 
 
@@ -119,7 +117,7 @@ async def vision_llm_func(state: MyState) -> MyState:
     if file_path == "":
         # Create Vision Agent Chain
         vision_llm_chat = ChatOllama(
-            model="llama4:maverick",
+            model="llama4:latest",
             base_url="http://localhost:11434",
             temperature=0.5,
         )
@@ -151,7 +149,7 @@ async def vision_llm_func(state: MyState) -> MyState:
 
     # Create Vision Agent Chain
     vision_llm_chat = ChatOllama(
-        model="llama4:maverick",
+        model="llama4:latest",
         temperature=0.9,
     )
 
@@ -194,7 +192,7 @@ async def vision_llm_func_feedback(state: MyState) -> MyState:
 
     # Create Vision Agent Chain
     vision_llm_chat = ChatOllama(
-        model="llama4:maverick",
+        model="llama4:latest",
         temperature=0.9,
     )
 
@@ -223,18 +221,12 @@ async def vision_llm_func_feedback(state: MyState) -> MyState:
 
 async def plan_llm_func(state):
 
-    # Create LLM Agent
-    if "GOOGLE_API_KEY" not in os.environ:
-        os.environ["GOOGLE_API_KEY"] = API_KEY
-    
-    plan_llm_chat = ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash",
-        temperature=0,
-        max_tokens=10000,
-        timeout=None,
-        max_retries=2,
-        # other params...
+    # Create Code Agent
+    plan_llm_chat = ChatOllama(
+        model="deeps:latest",
+        temperature=0.9,
     )
+
     
     # API endpoint
     url = "https://api.polyhaven.com/assets"
@@ -297,13 +289,13 @@ async def plan_llm_func(state):
     return state
 
 def code_llm_func(state):
-
+    
     # Create Code Agent
     code_llm_chat = ChatOllama(
-        model="deepseek-coder-v2:236b",
+        model="deepc:latest",
         temperature=0.9,
     )
-    
+
 
     # Get Agent Result
     prompt_code = """You are an expert in image analysis, 3D modeling, and Blender scripting. 
@@ -324,16 +316,16 @@ def code_llm_func_feedback(state):
 
     # Create Code Agent
     code_llm_chat = ChatOllama(
-        model="deepseek-coder-v2:236b",
+        model="deepc:latest",
         temperature=0.9,
     )
 
 
     # Get Agent Result
     prompt_code = """You are an expert in image analysis, 3D modeling, and Blender scripting. 
-            Implement the provided graph and asset list to create the described Landscape in Blender.
-            Furthermore try to minimize the following differences"""
-    code_llm_chat_input = state["plan"]+"\n"+prompt_code+state["visionloop"]
+            Improve the Blender Python Code to minimize the following differences.\n
+            """
+    code_llm_chat_input = state["code"]+"\n"+prompt_code+state["visionloop"]
     code_result = code_llm_chat.invoke(code_llm_chat_input)
 
     print("\n")
@@ -370,7 +362,7 @@ async def tools_llm_func(state):
     
     # Create Llm Chat
     tools_llm_chat = ChatOllama(
-        model="qwen3:235b",
+        model="qwen3:latest",
         temperature=0.0,
     )
     
@@ -466,7 +458,7 @@ async def tools_llm_func_feedback(state):
     
     # Create Llm Chat
     tools_llm_chat = ChatOllama(
-        model="qwen3:235b",
+        model="qwen3:latest",
         temperature=0.0,
     )
     
@@ -608,6 +600,5 @@ async def main():
 
 if __name__ == "__main__":
     # Run the example
-    API_KEY = ""
     asyncio.run(main())
     

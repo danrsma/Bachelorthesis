@@ -369,11 +369,11 @@ def code_llm_func_feedback(state):
 
     # Get Agent Result
     prompt_code = """You are an expert in image analysis, 3D modeling, and Blender scripting. 
-            Implement the provided graph to create the described Landscape in Blender.
-            Furthermore try to minimize the following differences"""
-    code_llm_chat_input = state["plan"]+"\n"+prompt_code+state["visionloop"]
+            Improve the Blender Python Code to minimize the following differences.\n
+            """
+    code_llm_chat_input = state["code"]+"\n"+prompt_code+state["visionloop"]
     code_result = code_llm_chat.invoke(code_llm_chat_input)
-
+    
     print("\n")
     print("CodeLLM Output:")
     print("\n")
