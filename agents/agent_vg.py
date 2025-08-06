@@ -1,5 +1,4 @@
 from langchain_core.messages import HumanMessage
-from langchain_core.messages import AIMessage
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from langchain_core.runnables import RunnableLambda
 from langgraph.prebuilt import create_react_agent
@@ -13,11 +12,8 @@ from PIL import Image
 import asyncio
 import tkinter as tk
 from tkinter import filedialog
-import re
 import os
 import time
-import requests
-
 
 class InputApp(tk.Tk):
     def __init__(self):
@@ -74,12 +70,10 @@ class InputApp(tk.Tk):
 class MyState(TypedDict):
 
     # Pass States Through Stategraph
-    vision: str
-    visionloop: str
-    code: str
-    plan: str
-    filepath: str
+    filepath_1: str
+    filepath_2: str
     userinput: str
+    vision: str
 
 
 def prompt_func(data):
@@ -112,479 +106,518 @@ def convert_to_base64(pil_image):
     return img_str
 
 
-async def vision_llm_func(state: MyState) -> MyState:
+async def llm_func(state):
+    user_input = state["userinput"]
 
-    # Get Image Data
-    file_path = state["filepath"]
-    if file_path == "":
+    if user_input == "":
+        file_path_2 = state["filepath_2"]
+
+        if file_path_2 == "":
+            # Get Image Data
+            file_path_1 = state["filepath_1"]
+
+            try:
+
+                pil_image = Image.open(file_path_1)
+
+            except Exception as e:
+                print(f"Error in main execution: {e}")
 
 
-        # Create LLM Agent
-        if "GOOGLE_API_KEY" not in os.environ:
-            os.environ["GOOGLE_API_KEY"] = API_KEY
+            image_b64_1= convert_to_base64(pil_image)
+
+
+            # Get MCP-Tools From Server
+            client = MultiServerMCPClient(
+                {
+                    "blender_mcp": {
+                        "command": "uvx",
+                        "args": ["blender-mcp"],
+                        "transport": "stdio",
+                    }
+                }
+            )
+            try:
+
+                tools = await client.get_tools()
+
+            except Exception as e:
+                print(f"Error in main execution: {e}")
+
+
+            # Filter The Tools
+            filtered_tools = [t for t in tools if t.name not in {"get_hyper3d_status", "get_sketchfab_status", "search_sketchfab_models","download_sketchfab_models","generate_hyper3d_model_via_text","generate_hyper3d_model_via_images","poll_rodin_job_status","import_generated_asset"}]
+
+
+            # Create LLM Agent
+            if "GOOGLE_API_KEY" not in os.environ:
+                os.environ["GOOGLE_API_KEY"] = API_KEY
+            
+            llm_chat = ChatGoogleGenerativeAI(
+                model="gemini-2.5-flash",
+                temperature=0,
+                max_tokens=10000,
+                timeout=None,
+                max_retries=2,
+                # other params...
+            )
+
+
+            # Prepare Image Chain
+            prompt_func_runnable = RunnableLambda(prompt_func)
+            chain = prompt_func_runnable | llm_chat
+
+            # Create Full Prompt
+            full_prompt = f"""
+                You are an expert in image analysis, 3D modeling, and Blender scripting. 
+                Provide a detailed and extensive description of the image. List all assets like hdris, models and textures you need to create it.
+            """
+
+            # Get Agent Chain Result
+            vision_result = chain.invoke({
+                "text": full_prompt,
+                "image": image_b64_1,
+            })
+
+            # Ouput Image LLM
+            print("\n")
+            print("ImageLLM Output:")
+            print("\n")
+            print(vision_result.content)
+            print("\n")
+            state["vision"] = str(vision_result.content)
+
+            # Prepare React Agent
+            agent = create_react_agent(
+                model = llm_chat,
+                tools=filtered_tools,
+            )
+            
+            # Create Full Prompt
+            full_prompt = f"""
+                You are an expert in image analysis, 3D modeling, and Blender scripting.
+                Recreate the Scene with colors or textures in Blender using Polyhaven Assets and Blender Code Execution.
+            """
+
+            # Get Agent Result
+            try:
+                print("Agent Output:\n")
+                await agent.ainvoke({
+                    "messages": [
+                        {"role": "user", "content": full_prompt+(vision_result.content)}
+                    ]
+                })
+
+            except Exception as e:
+                    print(f"Error in main execution: {e}")
+
+            
+
+            # Make Viewport Screenshot
+            screenshot_code = """
+            import bpy
+
+            # Create a new camera object
+            cam_data = bpy.data.cameras.new(name="MyCamera")
+            cam_object = bpy.data.objects.new("MyCamera", cam_data)
+
+            # Set camera location and rotation
+            cam_object.location = (30, 0, 15)
+            cam_object.rotation_euler = (1.3, 0, 1.57)
+
+            # Link the camera to the current scene
+            bpy.context.collection.objects.link(cam_object)
+
+            # Set the new camera as the active camera
+            bpy.context.scene.camera = cam_object
+
+            bpy.context.scene.render.filepath = "C:\\Users\\cross\\Desktop\\Image.png"
+            bpy.ops.render.render(write_still=True)
+
+                """
+            try:
+                await agent.ainvoke(
+                    {"messages": [{"role": "user", "content": "Execute the following Blender Python Code:\n"+screenshot_code+
+                    "\nIf it does not work try to create a camera and reexecute it."}]}
+                )
+                print("Screenshot taken.")
+            except Exception as e:
+                print(f"Error in main execution: {e}")
+
+
+            return state
         
-        vision_llm_chat = ChatGoogleGenerativeAI(
-            model="gemini-2.5-flash",
-            temperature=0,
-            max_tokens=10000,
-            timeout=None,
-            max_retries=2,
-            # other params...
-        )
+        else:
+            # Get Image Data
+            try:
+                pil_image = Image.open(file_path_2)
 
-        # Get Agent Result
-        prompt = """You are an expert in image analysis, 3D modeling, and Blender scripting. 
-            Provide a detailed and extensive description of the scene and list all assets including hdri, models and textures you will need to create it."""+state["userinput"]
-        vision_result = vision_llm_chat.invoke(prompt)
-
-        # Ouput Image LLM
-        print("\n")
-        print("ImageLLM Output:")
-        print("\n")
-        print(vision_result.content)
-        print("\n")
-
-        state["vision"] = vision_result.content
-        return state
-    
-    try:
-
-        pil_image = Image.open(file_path)
-
-    except Exception as e:
-        print(f"Error in main execution: {e}")
+            except Exception as e:
+                print(f"Error in main execution: {e}")
 
 
-    image_b64= convert_to_base64(pil_image)
+            image_b64_2= convert_to_base64(pil_image)
 
-    # Create LLM Agent
-    if "GOOGLE_API_KEY" not in os.environ:
-        os.environ["GOOGLE_API_KEY"] = API_KEY
-    
-    vision_llm_chat = ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash",
-        temperature=0,
-        max_tokens=10000,
-        timeout=None,
-        max_retries=2,
-        # other params...
-    )
+            # Get MCP-Tools From Server
+            client = MultiServerMCPClient(
+                {
+                    "blender_mcp": {
+                        "command": "uvx",
+                        "args": ["blender-mcp"],
+                        "transport": "stdio",
+                    }
+                }
+            )
+            try:
 
-    prompt_func_runnable = RunnableLambda(prompt_func)
-    chain = prompt_func_runnable | vision_llm_chat
+                tools = await client.get_tools()
 
-    prompt_vision = """You are an expert in image analysis, 3D modeling, and Blender scripting. 
-        Provide a detailed and extensive description of the image and list all assets including hdri, models and textures you will need to create it."""
+            except Exception as e:
+                print(f"Error in main execution: {e}")
 
-    # Get Agent Chain Result
-    vision_result = chain.invoke({
-        "text": prompt_vision,
-        "image": image_b64,
-    })
+            # Filter The Tools
+            filtered_tools = [t for t in tools if t.name not in {"get_hyper3d_status", "get_sketchfab_status", "search_sketchfab_models","download_sketchfab_models","generate_hyper3d_model_via_text","generate_hyper3d_model_via_images","poll_rodin_job_status","import_generated_asset"}]
 
-    print("\n")
-    print("ImageLLM Output:")
-    print("\n")
-    print(vision_result.content)
-    print("\n")
+            # Create Tool Agent
+            if "GOOGLE_API_KEY" not in os.environ:
+                os.environ["GOOGLE_API_KEY"] = API_KEY
+            
+            llm_chat = ChatGoogleGenerativeAI(
+                model="gemini-2.5-flash",
+                temperature=0,
+                max_tokens=10000,
+                timeout=None,
+                max_retries=2,
+                # other params...
+            )
 
-    state["vision"] = vision_result.content
+            # Prepare Image Chain
+            prompt_func_runnable = RunnableLambda(prompt_func)
+            chain = prompt_func_runnable | llm_chat
 
-    return state
+            # Create Full Prompt
+            full_prompt = f"""
+                You are an expert in image analysis, 3D modeling, and Blender scripting. 
+                Provide a detailed and extensive comparison of the image and the discription.
+            """
+            
+            # Get Agent Chain Result
+            vision_result = chain.invoke({
+                "text": full_prompt+state["vision"],
+                "image": image_b64_2,
+            })
 
-async def vision_llm_func_feedback(state: MyState) -> MyState:
+            # Ouput Image LLM
+            print("\n")
+            print("ImageLLM Output:")
+            print("\n")
+            print(vision_result.content)
+            print("\n")
 
-    # Get Image Data
-    file_path = state["filepath"]
-    
-    try:
+            # Prepare React Agent
+            agent = create_react_agent(
+                model = llm_chat,
+                tools=filtered_tools,
+            )
 
-        pil_image = Image.open(file_path)
+            # Create Full Prompt
+            full_prompt = f"""
+                You are an expert in image analysis, 3D modeling, and Blender scripting. 
+                Improve the Scene in Blender to match the description. Try to minimize the differences.
+            """
+            
+            # Get Agent Result
+            try:
+                print("Agent Output:\n")
+                await agent.ainvoke({
+                    "messages": [
+                        {"role": "user", "content": full_prompt+(vision_result.content)}
+                    ]
+                })
 
-    except Exception as e:
-        print(f"Error in main execution: {e}")
+            except Exception as e:
+                print(f"Error in main execution: {e}")
+            
 
 
-    image_b64= convert_to_base64(pil_image)
+            # Make Viewport Screenshot
+            screenshot_code = """
+            import bpy
 
-    # Create LLM Agent
-    if "GOOGLE_API_KEY" not in os.environ:
-        os.environ["GOOGLE_API_KEY"] = API_KEY
-    
-    vision_llm_chat = ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash",
-        temperature=0,
-        max_tokens=10000,
-        timeout=None,
-        max_retries=2,
-        # other params...
-    )
+            # Create a new camera object
+            cam_data = bpy.data.cameras.new(name="MyCamera")
+            cam_object = bpy.data.objects.new("MyCamera", cam_data)
 
-    prompt_func_runnable = RunnableLambda(prompt_func)
-    chain = prompt_func_runnable | vision_llm_chat
+            # Set camera location and rotation
+            cam_object.location = (30, 0, 15)
+            cam_object.rotation_euler = (1.3, 0, 1.57)
 
-    prompt_vision_loop = """You are an expert in image analysis, 3D modeling, and Blender scripting. 
-            Provide a detailed comparison of the image and the discription.
-            Mark out all the differences.
-            """+state["vision"]
-    # Get Agent Chain Result
-    vision_result = chain.invoke({
-        "text": prompt_vision_loop,
-        "image": image_b64,
-    })
+            # Link the camera to the current scene
+            bpy.context.collection.objects.link(cam_object)
 
-    print("\n")
-    print("ImageLLM Output:")
-    print("\n")
-    print(vision_result.content)
-    print("\n")
+            # Set the new camera as the active camera
+            bpy.context.scene.camera = cam_object
 
-    state["visionloop"] = vision_result.content
+            bpy.context.scene.render.filepath = "C:\\Users\\cross\\Desktop\\Feedback.png"
+            bpy.ops.render.render(write_still=True)
 
-    return state
+                """
+            try:
+                await agent.ainvoke(
+                    {"messages": [{"role": "user", "content": "Execute the following Blender Python Code:\n"+screenshot_code+
+                    "\nIf it does not work try to create a camera and reexecute it."}]}
+                )
+                print("Screenshot taken.")
+            except Exception as e:
+                print(f"Error in main execution: {e}")
 
-async def plan_llm_func(state):
 
-    # Create LLM Agent
-    if "GOOGLE_API_KEY" not in os.environ:
-        os.environ["GOOGLE_API_KEY"] = API_KEY
-    
-    plan_llm_chat = ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash",
-        temperature=0,
-        max_tokens=10000,
-        timeout=None,
-        max_retries=2,
-        # other params...
-    )
-
-    # API endpoint
-    url = "https://api.polyhaven.com/assets"
-
-    # Send GET request without headers
-    response = requests.get(url)
-
-    # Define asset List
-    asset_list = ""
-
-    # Check for success
-    if response.status_code == 200:
-        data = response.json()
-        for asset_id in list(data.keys()):
-            asset_list+=f"{asset_id}: {data[asset_id]['type']}"
+            return state
     else:
-        print(f"Request failed with status code {response.status_code}")
+        file_path_2 = state["filepath_2"]
+
+        if file_path_2 == "":
+            
+            # Get MCP-Tools From Server
+            client = MultiServerMCPClient(
+                {
+                    "blender_mcp": {
+                        "command": "uvx",
+                        "args": ["blender-mcp"],
+                        "transport": "stdio",
+                    }
+                }
+            )
+            try:
+
+                tools = await client.get_tools()
+
+            except Exception as e:
+                print(f"Error in main execution: {e}")
 
 
-    # Create Plan
-    prompt = f"""You are tasked with constructing a relational bipartite graph for 3D Scene based on the provided description and assetlist.
-        1.Review the Scene description and the list of assets.
-        2.Determine the spatial and contextual relionships needed to accurateley represent the scene's layout. Consider Relationships like:
-        -Proximity: A constraint enforcing the closeness of two objects, e.g., a chair near a table.
-        -Direction: The angle of one object is targeting at the other.
-        -Alignment: Ensuring objects align along a common axis, e.g., paintings aligned vertically on a wall.
-        -Symmetry: Mirroring objects along an axis, e.g., symmetrical placement of lamps on either side of a bed.
-        -Overlap: One object partially covering another, creating depth, e.g., a rug under a coffee table.
-        -Parallelism: Objects parallel to each other, suggesting direction, e.g., parallel rows of seats in a theater.
-        -Perpendicularity: Objects intersecting at a right angle, e.g., a bookshelf perpendicular to a desk.
-        -Hierarchy: Indicating a list of objects follow a certain order of size / volumns.
-        -Rotation: a list of objects rotate a cirtain point, e.g., rotating chairs around a meeting table.
-        -Repetition: Repeating patterns for rhythm or emphasis, e.g., a sequence oft street lights.
-        -Scaling: Adjusting object sizes for depth or focus, e.g., smaller background trees to create depth perception
-        Construct the relational bipartite graph 'G(s)=(A,R,E)' where:
-        -A represents the set of assets.
-        -R represents the set of Relations as nodes.
-        -E represents the edges connecting a relation node to a subset of assets 'E(r)' in the Scene that satisfies this relation.
-        Output your findings in a structured Format:
-        List of relation nodes 'R' with their types and descriptions.
-        Edges 'E' that link assests to their corresponding relation nodes.
-        This process will guide the Arrangement of assets in the 3D Scene, ensuring they are positioned scaled and oriented correctly according to the description.
-        """+state["vision"]
-
-    plan = plan_llm_chat.invoke(prompt)
-    filtered_plan = re.sub(r'<think>.*?</think>\s*', '', plan.content, flags=re.DOTALL)
-
-    # Output PlanLLM
-    print("\n")
-    print("PlanLLM Output:")
-    print("\n")
-    print(filtered_plan)
-    print("\n")
-
-    # API endpoint
-    url = "https://api.polyhaven.com/assets"
-
-    # Send GET request without headers
-    response = requests.get(url)
-
-    # Define asset List
-    asset_list = ""
-
-    # Check for success
-    if response.status_code == 200:
-        data = response.json()
-        for asset_id in list(data.keys()):
-            if(data[asset_id]['type']==0):
-                asset_list+=f"{asset_id}: HDRI, "
-            if(data[asset_id]['type']==1):
-                asset_list+=f"{asset_id}: Texture, "
-            else:
-                asset_list+=f"{asset_id}: Model, "
-    else:
-        print(f"Request failed with status code {response.status_code}")
+            # Filter The Tools
+            filtered_tools = [t for t in tools if t.name not in {"get_hyper3d_status", "get_sketchfab_status", "search_sketchfab_models","download_sketchfab_models","generate_hyper3d_model_via_text","generate_hyper3d_model_via_images","poll_rodin_job_status","import_generated_asset"}]
 
 
-    state["plan"] = filtered_plan+"\n"+asset_list
-    return state
+            # Create LLM Agent
+            if "GOOGLE_API_KEY" not in os.environ:
+                os.environ["GOOGLE_API_KEY"] = API_KEY
+            
+            llm_chat = ChatGoogleGenerativeAI(
+                model="gemini-2.5-flash",
+                temperature=0,
+                max_tokens=10000,
+                timeout=None,
+                max_retries=2,
+                # other params...
+            )
 
-def code_llm_func(state):
+            # Create Full Prompt
+            full_prompt = f"""
+                You are an expert in image analysis, 3D modeling, and Blender scripting. 
+                Provide a detailed and enhanced description of the scene. List all assets like hdris, models and textures you need to create it.
+            """
 
-    # Create LLM Agent
-    if "GOOGLE_API_KEY" not in os.environ:
-        os.environ["GOOGLE_API_KEY"] = API_KEY
-    
-    code_llm_chat = ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash",
-        temperature=0,
-        max_tokens=10000,
-        timeout=None,
-        max_retries=2,
-        # other params...
-    )
+            # Get Agent Chain Result
+            vision_result = llm_chat.invoke(full_prompt+user_input)
 
+            # Ouput Image LLM
+            print("\n")
+            print("ImageLLM Output:")
+            print("\n")
+            print(vision_result.content)
+            print("\n")
+            state["vision"] = vision_result.content
 
-    # Get Agent Result
-    prompt_code = """You are an expert in image analysis, 3D modeling, and Blender scripting. 
-            Implement the provided graph to create the described Landscape in Blender."""
-    code_llm_chat_input = state["plan"]+"\n"+prompt_code
-    code_result = code_llm_chat.invoke(code_llm_chat_input)
+            # Prepare React Agent
+            agent = create_react_agent(
+                model = llm_chat,
+                tools=filtered_tools,
+            )
+            
+            # Create Full Prompt
+            full_prompt = f"""
+                You are an expert in image analysis, 3D modeling, and Blender scripting.
+                Recreate the Scene with colors or textures in Blender using Polyhaven Assets and Blender Code Execution.
+            """
 
-    print("\n")
-    print("CodeLLM Output:")
-    print("\n")
-    print(code_result.content)
-    print("\n")
-    state["code"] = code_result.content
+            # Get Agent Result
+            try:
+                print("Agent Output:\n")
+                await agent.ainvoke({
+                    "messages": [
+                        {"role": "user", "content": state["vision"]+"\n"+full_prompt}
+                    ]
+                })
 
-    return state
+            except Exception as e:
+                    print(f"Error in main execution: {e}")
 
-def code_llm_func_feedback(state):
+            
 
-    # Create LLM Agent
-    if "GOOGLE_API_KEY" not in os.environ:
-        os.environ["GOOGLE_API_KEY"] = API_KEY
-    
-    code_llm_chat = ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash",
-        temperature=0,
-        max_tokens=10000,
-        timeout=None,
-        max_retries=2,
-        # other params...
-    )
+            # Make Viewport Screenshot
+            screenshot_code = """
+            import bpy
 
-    # Get Agent Result
-    prompt_code = """You are an expert in image analysis, 3D modeling, and Blender scripting. 
-            Implement the provided graph to create the described Landscape in Blender.
-            Furthermore try to minimize the following differences"""
-    code_llm_chat_input = state["plan"]+"\n"+prompt_code+state["visionloop"]
-    code_result = code_llm_chat.invoke(code_llm_chat_input)
+            # Create a new camera object
+            cam_data = bpy.data.cameras.new(name="MyCamera")
+            cam_object = bpy.data.objects.new("MyCamera", cam_data)
 
-    print("\n")
-    print("CodeLLM Output:")
-    print("\n")
-    print(code_result.content)
-    print("\n")
-    state["code"] = code_result.content
+            # Set camera location and rotation
+            cam_object.location = (30, 0, 15)
+            cam_object.rotation_euler = (1.3, 0, 1.57)
 
-    return state
+            # Link the camera to the current scene
+            bpy.context.collection.objects.link(cam_object)
 
+            # Set the new camera as the active camera
+            bpy.context.scene.camera = cam_object
 
-async def tools_llm_func(state):
+            bpy.context.scene.render.filepath = "C:\\Users\\cross\\Desktop\\Image.png"
+            bpy.ops.render.render(write_still=True)
 
-    # Get MCP-Tools From Server
-    client = MultiServerMCPClient(
-        {
-            "blender_mcp": {
-                "command": "uvx",
-                "args": ["blender-mcp"],
-                "transport": "stdio",
-            }
-        }
-    )
-    try:
-        tools = await client.get_tools()
-
-    except Exception as e:
-        print(f"Error in main execution: {e}")
-
-    # Filter The Tools
-    filtered_tools = [t for t in tools if t.name not in {"get_hyper3d_status", "get_sketchfab_status", "search_sketchfab_models","download_sketchfab_models","generate_hyper3d_model_via_text","generate_hyper3d_model_via_images","poll_rodin_job_status","import_generated_asset"}]
-
-    # Create LLM Agent
-    if "GOOGLE_API_KEY" not in os.environ:
-        os.environ["GOOGLE_API_KEY"] = API_KEY
-    
-    tools_llm_chat = ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash",
-        temperature=0,
-        max_tokens=10000,
-        timeout=None,
-        max_retries=2,
-        # other params...
-    )
-    
-    
-    #Create Tool Agent
-    agent = create_react_agent(
-        model = tools_llm_chat,
-        tools=filtered_tools
-    )
+                """
+            try:
+                await agent.ainvoke(
+                    {"messages": [{"role": "user", "content": "Execute the following Blender Python Code:\n"+screenshot_code+
+                    "\nIf it does not work try to create a camera and reexecute it."}]}
+                )
+                print("Screenshot taken.")
+            except Exception as e:
+                print(f"Error in main execution: {e}")
 
 
-    # Get Agent Result
-    try:
-        tool_result = await agent.ainvoke(
-            {"messages": [{"role": "user", "content": "You are an expert in image analysis, 3D modeling, and Blender scripting."+
-            "\nExecute the following Blender Python Code:\n"+state["code"]+
-            "\nIf it does not work try to fix and reexecute it."
-            }]}
-        )
+            return state
+        
+        else:
+            # Get Image Data
+            try:
+                pil_image = Image.open(file_path_2)
 
-    except Exception as e:
-        print(f"Error in main execution: {e}")
+            except Exception as e:
+                print(f"Error in main execution: {e}")
 
 
-    # Make Viewport Screenshot
-    screenshot_code = """
-        import bpy
+            image_b64_2= convert_to_base64(pil_image)
 
-        # Create a new camera object
-        cam_data = bpy.data.cameras.new(name="MyCamera")
-        cam_object = bpy.data.objects.new("MyCamera", cam_data)
+            # Get MCP-Tools From Server
+            client = MultiServerMCPClient(
+                {
+                    "blender_mcp": {
+                        "command": "uvx",
+                        "args": ["blender-mcp"],
+                        "transport": "stdio",
+                    }
+                }
+            )
+            try:
 
-        # Set camera location and rotation
-        cam_object.location = (30, 0, 15)
-        cam_object.rotation_euler = (1.3, 0, 1.57)
+                tools = await client.get_tools()
 
-        # Link the camera to the current scene
-        bpy.context.collection.objects.link(cam_object)
+            except Exception as e:
+                print(f"Error in main execution: {e}")
 
-        # Set the new camera as the active camera
-        bpy.context.scene.camera = cam_object
+            # Filter The Tools
+            filtered_tools = [t for t in tools if t.name not in {"get_hyper3d_status", "get_sketchfab_status", "search_sketchfab_models","download_sketchfab_models","generate_hyper3d_model_via_text","generate_hyper3d_model_via_images","poll_rodin_job_status","import_generated_asset"}]
 
-        bpy.context.scene.render.filepath = "C:\\Users\\cross\\Desktop\\Image.png"
-        bpy.ops.render.render(write_still=True)
+        
+            # Create Tool Agent
+            if "GOOGLE_API_KEY" not in os.environ:
+                os.environ["GOOGLE_API_KEY"] = API_KEY
+            
+            llm_chat = ChatGoogleGenerativeAI(
+                model="gemini-2.5-flash",
+                temperature=0,
+                max_tokens=10000,
+                timeout=None,
+                max_retries=2,
+                # other params...
+            )
 
-        """
-    try:
-        tool_result = await agent.ainvoke(
-            {"messages": [{"role": "user", "content": "Execute the following Blender Python Code:\n"+screenshot_code+
-            "\nIf it does not work try to fix and reexecute it."}]}
-        )
-        print("\n")
-        print("ToolLLM Output:")
-        print("\n")
-        print("Screenshot taken.")
-        print("\n")
+                    # Prepare Image Chain
+            prompt_func_runnable = RunnableLambda(prompt_func)
+            chain = prompt_func_runnable | llm_chat
 
-    except Exception as e:
-        print(f"Error in main execution: {e}")
+            # Create Full Prompt
+            full_prompt = f"""
+                You are an expert in image analysis, 3D modeling, and Blender scripting. 
+                Provide a detailed and extensive comparison of the image and the discription.
+            """
+            
+            # Get Agent Chain Result
+            vision_result = chain.invoke({
+                "text": full_prompt+state["vision"],
+                "image": image_b64_2,
+            })
 
-    return state
+            # Ouput Image LLM
+            print("\n")
+            print("ImageLLM Output:")
+            print("\n")
+            print(vision_result.content)
+            print("\n")
 
+            # Prepare React Agent
+            agent = create_react_agent(
+                model = llm_chat,
+                tools=filtered_tools,
+            )
 
-async def tools_llm_func_feedback(state):
+            # Create Full Prompt
+            full_prompt = f"""
+                You are an expert in image analysis, 3D modeling, and Blender scripting. 
+                Improve the Scene in Blender to match the description. Try to minimize the differences.
+            """
+            
+            # Get Agent Result
+            try:
+                print("Agent Output:\n")
+                await agent.ainvoke({
+                    "messages": [
+                        {"role": "user", "content": full_prompt+(vision_result.content)}
+                    ]
+                })
 
-    # Get MCP-Tools From Server
-    client = MultiServerMCPClient(
-        {
-            "blender_mcp": {
-                "command": "uvx",
-                "args": ["blender-mcp"],
-                "transport": "stdio",
-            }
-        }
-    )
-    try:
-        tools = await client.get_tools()
-
-    except Exception as e:
-        print(f"Error in main execution: {e}")
-
-    # Filter The Tools
-    filtered_tools = [t for t in tools if t.name not in {"get_hyper3d_status", "get_sketchfab_status", "search_sketchfab_models","download_sketchfab_models","generate_hyper3d_model_via_text","generate_hyper3d_model_via_images","poll_rodin_job_status","import_generated_asset"}]
-
-    # Create LLM Agent
-    if "GOOGLE_API_KEY" not in os.environ:
-        os.environ["GOOGLE_API_KEY"] = API_KEY
-    
-    tools_llm_chat = ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash",
-        temperature=0,
-        max_tokens=10000,
-        timeout=None,
-        max_retries=2,
-        # other params...
-    )
-    
-    
-    #Create Tool Agent
-    agent = create_react_agent(
-        model = tools_llm_chat,
-        tools=filtered_tools
-    )
+            except Exception as e:
+                print(f"Error in main execution: {e}")
+            
 
 
-    # Get Agent Result
-    try:
-        tool_result = await agent.ainvoke(
-            {"messages": [{"role": "user", "content": "You are an expert in image analysis, 3D modeling, and Blender scripting."+
-            "\nExecute the following Blender Python Code:\n"+state["code"]+
-            "\nIf it does not work try to fix and reexecute it."
-            }]}
-        )
+            # Make Viewport Screenshot
+            screenshot_code = """
+            import bpy
 
-    except Exception as e:
-        print(f"Error in main execution: {e}")
+            # Create a new camera object
+            cam_data = bpy.data.cameras.new(name="MyCamera")
+            cam_object = bpy.data.objects.new("MyCamera", cam_data)
 
-    # Make Viewport Screenshot
-    screenshot_code = """
-        import bpy
+            # Set camera location and rotation
+            cam_object.location = (30, 0, 15)
+            cam_object.rotation_euler = (1.3, 0, 1.57)
 
-        # Create a new camera object
-        cam_data = bpy.data.cameras.new(name="MyCamera")
-        cam_object = bpy.data.objects.new("MyCamera", cam_data)
+            # Link the camera to the current scene
+            bpy.context.collection.objects.link(cam_object)
 
-        # Set camera location and rotation
-        cam_object.location = (30, 0, 15)
-        cam_object.rotation_euler = (1.3, 0, 1.57)
+            # Set the new camera as the active camera
+            bpy.context.scene.camera = cam_object
 
-        # Link the camera to the current scene
-        bpy.context.collection.objects.link(cam_object)
+            bpy.context.scene.render.filepath = "C:\\Users\\cross\\Desktop\\Feedback.png"
+            bpy.ops.render.render(write_still=True)
 
-        # Set the new camera as the active camera
-        bpy.context.scene.camera = cam_object
+                """
+            try:
+                await agent.ainvoke(
+                    {"messages": [{"role": "user", "content": "Execute the following Blender Python Code:\n"+screenshot_code+
+                    "\nIf it does not work try to create a camera and reexecute it."}]}
+                )
+                print("Screenshot taken.")
+            except Exception as e:
+                print(f"Error in main execution: {e}")
 
-        bpy.context.scene.render.filepath = "C:\\Users\\cross\\Desktop\\Feedback.png"
-        bpy.ops.render.render(write_still=True)
 
-        """
-    try:
-        tool_result = await agent.ainvoke(
-            {"messages": [{"role": "user", "content": "Execute the following Blender Python Code:\n"+screenshot_code+
-            "\nIf it does not work try to fix and reexecute it."}]}
-        )
-        print("\n")
-        print("ToolLLM Output:")
-        print("\n")
-        print("Screenshot taken.")
-        print("\n")
+            return state
 
-    except Exception as e:
-        print(f"Error in main execution: {e}")
-
-    return state
 
 
 async def main():
@@ -613,56 +646,41 @@ async def main():
 
     # Create StateGraph With Nodes And Edges
     graph = StateGraph(MyState)
-    graph.add_node("vision_llm", vision_llm_func)
-    graph.add_node("code_llm", code_llm_func)
-    graph.add_node("plan_llm",plan_llm_func)
-    graph.add_node("tools_llm", tools_llm_func)
-    graph.add_edge(START,"vision_llm")
-    graph.add_edge("vision_llm", "plan_llm")
-    graph.add_edge("plan_llm","code_llm")
-    graph.add_edge("code_llm", "tools_llm")
-    graph.add_edge("tools_llm",END)
+    graph.add_node("gemini_llm",llm_func)
+    graph.add_edge(START,"gemini_llm")
+    graph.add_edge("gemini_llm",END)
     graph = graph.compile()
 
     # Get StateGraph Output State
-    input_state = MyState(userinput=user_input,filepath=file_path)
+    input_state = MyState(filepath_1=file_path,filepath_2="",userinput=user_input,vision="")
     output_state = await graph.ainvoke(input_state, config={"recursion_limit": 150})
 
-    # Create StateGraph With Nodes And Edges for Feedback Loop
-    graph = StateGraph(MyState)
-    graph.add_node("vision_llm", vision_llm_func_feedback)
-    graph.add_node("code_llm", code_llm_func_feedback)
-    graph.add_node("tools_llm", tools_llm_func_feedback)
-    graph.add_edge(START,"vision_llm")
-    graph.add_edge("vision_llm", "code_llm")
-    graph.add_edge("code_llm", "tools_llm")
-    graph.add_edge("tools_llm",END)
-    graph = graph.compile()
 
     # Prepare Rendering Loop
     time.sleep(10)
     file_path_loop = "C:\\Users\\cross\\Desktop\\Image.png"
-    output_state["filepath"] = file_path_loop
+    output_state["filepath_2"] = file_path_loop
     input_state = output_state
     time.sleep(10)
-    
-    # Start Feedback Loop
+
+    # Start Rendering Loop
     for i in range(9):
         print("\n")
         print(f"++++++++++++++++++++++++++++++")
         print(f"+ Feedback Loop iteration: {str(i+2)} +")
         print(f"++++++++++++++++++++++++++++++")
         print("\n")
+        time.sleep(10)
         output_state = await graph.ainvoke(input_state, config={"recursion_limit": 150})
         time.sleep(10)
         file_path_loop = "C:\\Users\\cross\\Desktop\\Feedback.png"
-        output_state["filepath"] = file_path_loop
+        output_state["filepath_2"] = file_path_loop
         input_state = output_state
         time.sleep(10)
 
 
 if __name__ == "__main__":
-    # Run the example
     API_KEY = ""
+    # Run the example
     asyncio.run(main())
     

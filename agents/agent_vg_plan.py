@@ -360,9 +360,11 @@ async def tools_llm_func(state):
     try:
         tool_result = await agent.ainvoke(
             {"messages": [{"role": "user", "content": "You are an expert in image analysis, 3D modeling, and Blender scripting."+
-            "\nRecreate the scene by implementing the following Plan in Blender:\n"+state["plan"]
+            "\nRecreate the Scene according to the plan and description in Blender:\n"+state["vision"]+state["plan"]+
+            "\nIf it does not work try to fix and reexecute it."           
             }]}
         )
+
 
     except Exception as e:
         print(f"Error in main execution: {e}")
@@ -457,8 +459,9 @@ async def tools_llm_func_feedback(state):
     try:
         tool_result = await agent.ainvoke(
             {"messages": [{"role": "user", "content": "You are an expert in image analysis, 3D modeling, and Blender scripting."+
-            "\nTry to minimize the differences from:\n"+state["visionloop"]+
-            "\nStick to the Plan:\n"+state["plan"]
+            "\nTry to improve the scene according to the differences noted:\n"+state["visionloop"]+
+            "\nStick to the Plan and Description:\n"+state["plan"]+state["vision"]+
+            "\nIf it does not work try to fix and reexecute it."      
             }]}
         )
 
@@ -571,6 +574,7 @@ async def main():
         print(f"+ Feedback Loop iteration: {str(i+2)} +")
         print(f"++++++++++++++++++++++++++++++")
         print("\n")
+        time.sleep(10)
         output_state = await graph.ainvoke(input_state, config={"recursion_limit": 150})
         time.sleep(10)
         file_path_loop = "C:\\Users\\cross\\Desktop\\Feedback.png"

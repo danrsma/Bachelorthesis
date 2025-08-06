@@ -14,6 +14,7 @@ import asyncio
 import tkinter as tk
 from tkinter import filedialog
 import re
+import requests
 
 
 class InputApp(tk.Tk):
@@ -73,6 +74,8 @@ class MyState(TypedDict):
     # Pass States Through Stategraph
     vision: str
     visionloop: str
+    code: str
+    plan: str
     filepath: str
     userinput: str
 
@@ -113,7 +116,7 @@ async def vision_llm_func(state: MyState) -> MyState:
     if file_path == "":
         # Create Vision Agent Chain
         vision_llm_chat = ChatOllama(
-            model="gemma3:12b",
+            model="llama4:maverick",
             base_url="http://localhost:11434",
             temperature=0.5,
         )
@@ -145,7 +148,7 @@ async def vision_llm_func(state: MyState) -> MyState:
 
     # Create Vision Agent Chain
     vision_llm_chat = ChatOllama(
-        model="gemma3:12b",
+        model="llama4:maverick",
         temperature=0.9,
     )
 
@@ -188,7 +191,7 @@ async def vision_llm_func_feedback(state: MyState) -> MyState:
 
     # Create Vision Agent Chain
     vision_llm_chat = ChatOllama(
-        model="gemma3:12b",
+        model="llama4:maverick",
         temperature=0.9,
     )
 
@@ -212,6 +215,102 @@ async def vision_llm_func_feedback(state: MyState) -> MyState:
     print("\n")
 
     state["visionloop"] = vision_result.content
+
+    return state
+
+async def plan_llm_func(state):
+
+    # Create Plan Agent
+    plan_llm_chat = ChatOllama(
+        model="llama4:maverick",
+        temperature=0.0,
+    )
+    
+
+    # Create Plan
+    prompt = """You are tasked with constructing a relational bipartite graph for 3D Scene based on the provided description and assetlist.
+        1.Review the Scene description and the list of assets.
+        2.Determine the spatial and contextual relionships needed to accurateley represent the scene's layout. Consider Relationships like:
+        -Proximity: A constraint enforcing the closeness of two objects, e.g., a chair near a table.
+        -Direction: The angle of one object is targeting at the other.
+        -Alignment: Ensuring objects align along a common axis, e.g., paintings aligned vertically on a wall.
+        -Symmetry: Mirroring objects along an axis, e.g., symmetrical placement of lamps on either side of a bed.
+        -Overlap: One object partially covering another, creating depth, e.g., a rug under a coffee table.
+        -Parallelism: Objects parallel to each other, suggesting direction, e.g., parallel rows of seats in a theater.
+        -Perpendicularity: Objects intersecting at a right angle, e.g., a bookshelf perpendicular to a desk.
+        -Hierarchy: Indicating a list of objects follow a certain order of size / volumns.
+        -Rotation: a list of objects rotate a cirtain point, e.g., rotating chairs around a meeting table.
+        -Repetition: Repeating patterns for rhythm or emphasis, e.g., a sequence oft street lights.
+        -Scaling: Adjusting object sizes for depth or focus, e.g., smaller background trees to create depth perception
+        Construct the relational bipartite graph 'G(s)=(A,R,E)' where:
+        -A represents the set of assets.
+        -R represents the set of Relations as nodes.
+        -E represents the edges connecting a relation node to a subset of assets 'E(r)' in the Scene that satisfies this relation.
+        Output your findings in a structured Format:
+        List of relation nodes 'R' with their types and descriptions.
+        Edges 'E' that link assests to their corresponding relation nodes.
+        This process will guide the Arrangement of assets in the 3D Scene, ensuring they are positioned scaled and oriented correctly according to the description.
+        """+state["vision"]
+
+    plan = plan_llm_chat.invoke(prompt)
+    filtered_plan = re.sub(r'<think>.*?</think>\s*', '', plan.content, flags=re.DOTALL)
+
+    # Output PlanLLM
+    print("\n")
+    print("PlanLLM Output:")
+    print("\n")
+    print(filtered_plan)
+    print("\n")
+
+    state["plan"] = filtered_plan
+    return state
+
+def code_llm_func(state):
+
+    # Create Code Agent
+    code_llm_chat = ChatOllama(
+        model="qwen3:235b",
+        temperature=0.9,
+    )
+    
+
+    # Get Agent Result
+    prompt_code = """You are an expert in image analysis, 3D modeling, and Blender scripting. 
+            Implement the provided graph and asset list to create the described Landscape in Blender."""
+    code_llm_chat_input = state["plan"]+"\n"+prompt_code
+    code_result = code_llm_chat.invoke(code_llm_chat_input)
+
+    print("\n")
+    print("CodeLLM Output:")
+    print("\n")
+    print(code_result.content)
+    print("\n")
+    state["code"] = code_result.content
+
+    return state
+
+def code_llm_func_feedback(state):
+
+    # Create Code Agent
+    code_llm_chat = ChatOllama(
+        model="qwen3:235b",
+        temperature=0.9,
+    )
+
+
+    # Get Agent Result
+    prompt_code = """You are an expert in image analysis, 3D modeling, and Blender scripting. 
+            Implement the provided graph and asset list to create the described Landscape in Blender.
+            Furthermore try to minimize the following differences"""
+    code_llm_chat_input = state["plan"]+"\n"+prompt_code+state["visionloop"]
+    code_result = code_llm_chat.invoke(code_llm_chat_input)
+
+    print("\n")
+    print("CodeLLM Output:")
+    print("\n")
+    print(code_result.content)
+    print("\n")
+    state["code"] = code_result.content
 
     return state
 
@@ -240,11 +339,11 @@ async def tools_llm_func(state):
     
     # Create Llm Chat
     tools_llm_chat = ChatOllama(
-        model="qwen3:",
+        model="qwen3:235b",
         temperature=0.0,
     )
     
-    # Create Tool Agent
+    #Create Tool Agent
     agent = create_react_agent(
         model = tools_llm_chat,
         tools=filtered_tools
@@ -255,12 +354,17 @@ async def tools_llm_func(state):
     try:
         tool_result = await agent.ainvoke(
             {"messages": [{"role": "user", "content": "You are an expert in image analysis, 3D modeling, and Blender scripting."+
-            "Recreate the provided Scene in Blender. Use Polyhaven assets and Blender Code Execution.\n"+state["vision"]        
+            "\nExecute the following Blender Python Code:\n"+state["code"]+
+            "\nIf it does not work try to fix and reexecute it."           
             }]}
         )
 
     except Exception as e:
         print(f"Error in main execution: {e}")
+
+    ai_messages = [m for m in tool_result["messages"] if isinstance(m, AIMessage)]
+    full_output = "\n\n".join(m.content for m in ai_messages)
+    filtered_output = re.sub(r'<think>.*?</think>\s*', '', full_output, flags=re.DOTALL)
 
     # Make Viewport Screenshot
     screenshot_code = """
@@ -294,9 +398,15 @@ async def tools_llm_func(state):
         print("\n")
         print("Screenshot taken.")
         print("\n")
-
     except Exception as e:
         print(f"Error in main execution: {e}")
+
+    # Get Code Agent Result
+    print("\n")
+    print("CodeLLM Output:")
+    print("\n")
+    print(filtered_output)
+    print("\n")
 
     return state
 
@@ -324,7 +434,7 @@ async def tools_llm_func_feedback(state):
     
     # Create Llm Chat
     tools_llm_chat = ChatOllama(
-        model="gpt-oss:20b",
+        model="qwen3:235b",
         temperature=0.0,
     )
     
@@ -339,13 +449,17 @@ async def tools_llm_func_feedback(state):
     try:
         tool_result = await agent.ainvoke(
             {"messages": [{"role": "user", "content": "You are an expert in image analysis, 3D modeling, and Blender scripting."+
-            " Improve the Scene in Blender to minimize the differences.\n"+state["visionloop"]+
-            "\n Stick to the description of the scene and try to recreate it.\n"+state["vision"]      
+            "\nExecute the following Blender Python Code:\n"+state["code"]+
+            "\nIf it does not work try to fix and reexecute it."      
             }]}
         )
 
     except Exception as e:
         print(f"Error in main execution: {e}")
+
+    ai_messages = [m for m in tool_result["messages"] if isinstance(m, AIMessage)]
+    full_output = "\n\n".join(m.content for m in ai_messages)
+    filtered_output = re.sub(r'<think>.*?</think>\s*', '', full_output, flags=re.DOTALL)
 
     # Make Viewport Screenshot
     screenshot_code = """
@@ -378,6 +492,8 @@ async def tools_llm_func_feedback(state):
         print("ToolLLM Output:")
         print("\n")
         print("Screenshot taken.")
+        print("\n")
+        print(filtered_output)
         print("\n")
     except Exception as e:
         print(f"Error in main execution: {e}")
@@ -413,9 +529,13 @@ async def main():
     # Create StateGraph With Nodes And Edges
     graph = StateGraph(MyState)
     graph.add_node("vision_llm", vision_llm_func)
+    graph.add_node("code_llm", code_llm_func)
+    graph.add_node("plan_llm",plan_llm_func)
     graph.add_node("tools_llm", tools_llm_func)
     graph.add_edge(START,"vision_llm")
-    graph.add_edge("vision_llm", "tools_llm")
+    graph.add_edge("vision_llm", "plan_llm")
+    graph.add_edge("plan_llm","code_llm")
+    graph.add_edge("code_llm", "tools_llm")
     graph.add_edge("tools_llm",END)
     graph = graph.compile()
 
@@ -426,9 +546,11 @@ async def main():
     # Create StateGraph With Nodes And Edges for Feedback Loop
     graph = StateGraph(MyState)
     graph.add_node("vision_llm", vision_llm_func_feedback)
+    graph.add_node("code_llm", code_llm_func_feedback)
     graph.add_node("tools_llm", tools_llm_func_feedback)
     graph.add_edge(START,"vision_llm")
-    graph.add_edge("vision_llm", "tools_llm")
+    graph.add_edge("vision_llm", "code_llm")
+    graph.add_edge("code_llm", "tools_llm")
     graph.add_edge("tools_llm",END)
     graph = graph.compile()
 
