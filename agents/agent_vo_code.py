@@ -76,6 +76,7 @@ class MyState(TypedDict):
     # Pass States Through Stategraph
     vision: str
     visionloop: str
+    iter: str
     code: str
     plan: str
     filepath: str
@@ -397,7 +398,8 @@ async def tools_llm_func(state):
     filtered_output = re.sub(r'<think>.*?</think>\s*', '', full_output, flags=re.DOTALL)
 
     # Make Viewport Screenshot
-    screenshot_code = """
+    iter=state["iter"]
+    screenshot_code = f"""
         import bpy
 
         # Create a new camera object
@@ -414,7 +416,7 @@ async def tools_llm_func(state):
         # Set the new camera as the active camera
         bpy.context.scene.camera = cam_object
 
-        bpy.context.scene.render.filepath = "C:\\Users\\cross\\Desktop\\Image.png"
+        bpy.context.scene.render.filepath = "C:\\Users\\cross\\Desktop\\Feedback_{iter}.png"
         bpy.ops.render.render(write_still=True)
 
         """
@@ -492,7 +494,8 @@ async def tools_llm_func_feedback(state):
     filtered_output = re.sub(r'<think>.*?</think>\s*', '', full_output, flags=re.DOTALL)
 
     # Make Viewport Screenshot
-    screenshot_code = """
+    iter=state["iter"]
+    screenshot_code = f"""
         import bpy
 
         # Create a new camera object
@@ -509,7 +512,7 @@ async def tools_llm_func_feedback(state):
         # Set the new camera as the active camera
         bpy.context.scene.camera = cam_object
 
-        bpy.context.scene.render.filepath = "C:\\Users\\cross\\Desktop\\Feedback.png"
+        bpy.context.scene.render.filepath = "C:\\Users\\cross\\Desktop\\Feedback_{iter}.png"
         bpy.ops.render.render(write_still=True)
 
         """
@@ -570,7 +573,7 @@ async def main():
     graph = graph.compile()
 
     # Get StateGraph Output State
-    input_state = MyState(userinput=user_input,filepath=file_path)
+    input_state = MyState(userinput=user_input,filepath=file_path,iter="1")
     output_state = await graph.ainvoke(input_state, config={"recursion_limit": 150})
 
     # Create StateGraph With Nodes And Edges for Feedback Loop
@@ -585,19 +588,20 @@ async def main():
     graph = graph.compile()
 
     # Prepare Rendering Loop
-    file_path_loop = "C:\\Users\\cross\\Desktop\\Image.png"
+    file_path_loop = "C:\\Users\\cross\\Desktop\\Feedback_1.png"
     output_state["filepath"] = file_path_loop
     input_state = output_state
     
     # Start Feedback Loop
-    for i in range(9):
+    for i in range(19):
         print("\n")
         print(f"++++++++++++++++++++++++++++++")
         print(f"+ Feedback Loop iteration: {str(i+2)} +")
         print(f"++++++++++++++++++++++++++++++")
         print("\n")
+        input_state["iter"]=str(i+2)
         output_state = await graph.ainvoke(input_state, config={"recursion_limit": 150})
-        file_path_loop = "C:\\Users\\cross\\Desktop\\Feedback.png"
+        file_path_loop = f"C:\\Users\\cross\\Desktop\\Feedback_{str(i+2)}.png"
         output_state["filepath"] = file_path_loop
         input_state = output_state
 
