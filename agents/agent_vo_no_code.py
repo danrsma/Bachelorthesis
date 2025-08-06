@@ -14,6 +14,7 @@ import asyncio
 import tkinter as tk
 from tkinter import filedialog
 import re
+import requests
 
 
 class InputApp(tk.Tk):
@@ -73,6 +74,7 @@ class MyState(TypedDict):
     # Pass States Through Stategraph
     vision: str
     visionloop: str
+    plan: str
     filepath: str
     userinput: str
 
@@ -215,6 +217,52 @@ async def vision_llm_func_feedback(state: MyState) -> MyState:
 
     return state
 
+async def plan_llm_func(state):
+
+    # Create Plan Agent
+    plan_llm_chat = ChatOllama(
+        model="llama4:scout",
+        temperature=0.0,
+    )
+    
+    # API endpoint
+    url = "https://api.polyhaven.com/assets"
+
+    # Send GET request without headers
+    response = requests.get(url)
+
+    # Define asset List
+    asset_list = ""
+
+    # Check for success
+    if response.status_code == 200:
+        data = response.json()
+        for asset_id in list(data.keys()):
+            asset_list+=f"{asset_id}: {data[asset_id]['type']}\n"
+    else:
+        print(f"Request failed with status code {response.status_code}")
+
+
+
+    # Create Plan
+    prompt = """You are an expert in image analysis, 3D modeling, and Blender scripting.
+        1.Review the Scene description and the list of assets.
+        2.Plan how to arange the selected assets to recreate the scnene.
+        """+state["vision"]+asset_list+"\n0: HDRIs,\n1: Textures,\n2: Models"
+
+    plan = plan_llm_chat.invoke(prompt)
+    filtered_plan = re.sub(r'<think>.*?</think>\s*', '', plan.content, flags=re.DOTALL)
+
+    # Output PlanLLM
+    print("\n")
+    print("PlanLLM Output:")
+    print("\n")
+    print(filtered_plan)
+    print("\n")
+
+    state["plan"] = filtered_plan
+    return state
+
 
 async def tools_llm_func(state):
 
@@ -244,7 +292,7 @@ async def tools_llm_func(state):
         temperature=0.0,
     )
     
-    # Create Tool Agent
+    #Create Tool Agent
     agent = create_react_agent(
         model = tools_llm_chat,
         tools=filtered_tools
@@ -255,12 +303,17 @@ async def tools_llm_func(state):
     try:
         tool_result = await agent.ainvoke(
             {"messages": [{"role": "user", "content": "You are an expert in image analysis, 3D modeling, and Blender scripting."+
-            "Recreate the provided Scene in Blender. Use Polyhaven assets and Blender Code Execution.\n"+state["vision"]        
+            "\nRecreate the Scene according to the plan in Blender:\n"+state["plan"]+
+            "\nIf it does not work try to fix and reexecute it."           
             }]}
         )
 
     except Exception as e:
         print(f"Error in main execution: {e}")
+
+    ai_messages = [m for m in tool_result["messages"] if isinstance(m, AIMessage)]
+    full_output = "\n\n".join(m.content for m in ai_messages)
+    filtered_output = re.sub(r'<think>.*?</think>\s*', '', full_output, flags=re.DOTALL)
 
     # Make Viewport Screenshot
     screenshot_code = """
@@ -294,9 +347,15 @@ async def tools_llm_func(state):
         print("\n")
         print("Screenshot taken.")
         print("\n")
-
     except Exception as e:
         print(f"Error in main execution: {e}")
+
+    # Get Code Agent Result
+    print("\n")
+    print("CodeLLM Output:")
+    print("\n")
+    print(filtered_output)
+    print("\n")
 
     return state
 
@@ -339,13 +398,18 @@ async def tools_llm_func_feedback(state):
     try:
         tool_result = await agent.ainvoke(
             {"messages": [{"role": "user", "content": "You are an expert in image analysis, 3D modeling, and Blender scripting."+
-            " Improve the Scene in Blender to minimize the differences.\n"+state["visionloop"]+
-            "\n Stick to the description of the scene and try to recreate it.\n"+state["vision"]      
+            "\nTry to improve the scene according to the differences noted:\n"+state["vision"]+
+            "\nStick to the Plan:\n"+state["plan"]+
+            "\nIf it does not work try to fix and reexecute it."      
             }]}
         )
 
     except Exception as e:
         print(f"Error in main execution: {e}")
+
+    ai_messages = [m for m in tool_result["messages"] if isinstance(m, AIMessage)]
+    full_output = "\n\n".join(m.content for m in ai_messages)
+    filtered_output = re.sub(r'<think>.*?</think>\s*', '', full_output, flags=re.DOTALL)
 
     # Make Viewport Screenshot
     screenshot_code = """
@@ -378,6 +442,8 @@ async def tools_llm_func_feedback(state):
         print("ToolLLM Output:")
         print("\n")
         print("Screenshot taken.")
+        print("\n")
+        print(filtered_output)
         print("\n")
     except Exception as e:
         print(f"Error in main execution: {e}")
@@ -413,9 +479,11 @@ async def main():
     # Create StateGraph With Nodes And Edges
     graph = StateGraph(MyState)
     graph.add_node("vision_llm", vision_llm_func)
+    graph.add_node("plan_llm",plan_llm_func)
     graph.add_node("tools_llm", tools_llm_func)
     graph.add_edge(START,"vision_llm")
-    graph.add_edge("vision_llm", "tools_llm")
+    graph.add_edge("vision_llm", "plan_llm")
+    graph.add_edge("plan_llm","tools_llm")
     graph.add_edge("tools_llm",END)
     graph = graph.compile()
 
@@ -438,7 +506,7 @@ async def main():
     input_state = output_state
     
     # Start Feedback Loop
-    for i in range(19):
+    for i in range(9):
         print("\n")
         print(f"++++++++++++++++++++++++++++++")
         print(f"+ Feedback Loop iteration: {str(i+2)} +")

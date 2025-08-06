@@ -222,7 +222,7 @@ async def plan_llm_func(state):
 
     # Create Plan Agent
     plan_llm_chat = ChatOllama(
-        model="llama4:maverick",
+        model="llama4:scout",
         temperature=0.0,
     )
     
@@ -311,7 +311,7 @@ def code_llm_func_feedback(state):
 
     # Create Code Agent
     code_llm_chat = ChatOllama(
-        model="qwen3:235b",
+        model="llama4:maverick",
         temperature=0.9,
     )
 
@@ -578,7 +578,7 @@ async def main():
     input_state = output_state
     
     # Start Feedback Loop
-    for i in range(4):
+    for i in range(9):
         print("\n")
         print(f"++++++++++++++++++++++++++++++")
         print(f"+ Feedback Loop iteration: {str(i+2)} +")
