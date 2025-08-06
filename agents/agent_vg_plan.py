@@ -270,10 +270,14 @@ async def plan_llm_func(state):
     if response.status_code == 200:
         data = response.json()
         for asset_id in list(data.keys()):
-            asset_list+=f"{asset_id}: {data[asset_id]['type']}"
+            if(data[asset_id]['type']==0):
+                asset_list+=f"{asset_id}: HDRI, "
+            if(data[asset_id]['type']==1):
+                asset_list+=f"{asset_id}: Texture, "
+            else:
+                asset_list+=f"{asset_id}: Model, "
     else:
         print(f"Request failed with status code {response.status_code}")
-
 
     # Create Plan
     prompt = f"""You are tasked with constructing a relational bipartite graph for 3D Scene based on the provided description and assetlist.
@@ -298,7 +302,7 @@ async def plan_llm_func(state):
         List of relation nodes 'R' with their types and descriptions.
         Edges 'E' that link assests to their corresponding relation nodes.
         This process will guide the Arrangement of assets in the 3D Scene, ensuring they are positioned scaled and oriented correctly according to the description.
-        """+state["vision"]+asset_list+"\n0: HDRIs,\n1: Textures,\n2: Models"
+        """+state["vision"]+asset_list
 
     plan = plan_llm_chat.invoke(prompt)
     filtered_plan = re.sub(r'<think>.*?</think>\s*', '', plan.content, flags=re.DOTALL)

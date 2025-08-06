@@ -226,6 +226,27 @@ async def plan_llm_func(state):
         temperature=0.0,
     )
     
+    # API endpoint
+    url = "https://api.polyhaven.com/assets"
+
+    # Send GET request without headers
+    response = requests.get(url)
+
+    # Define asset List
+    asset_list = ""
+
+    # Check for success
+    if response.status_code == 200:
+        data = response.json()
+        for asset_id in list(data.keys()):
+            if(data[asset_id]['type']==0):
+                asset_list+=f"{asset_id}: HDRI, "
+            if(data[asset_id]['type']==1):
+                asset_list+=f"{asset_id}: Texture, "
+            else:
+                asset_list+=f"{asset_id}: Model, "
+    else:
+        print(f"Request failed with status code {response.status_code}")
 
     # Create Plan
     prompt = """You are tasked with constructing a relational bipartite graph for 3D Scene based on the provided description and assetlist.
@@ -250,7 +271,7 @@ async def plan_llm_func(state):
         List of relation nodes 'R' with their types and descriptions.
         Edges 'E' that link assests to their corresponding relation nodes.
         This process will guide the Arrangement of assets in the 3D Scene, ensuring they are positioned scaled and oriented correctly according to the description.
-        """+state["vision"]
+        """+state["vision"]+asset_list
 
     plan = plan_llm_chat.invoke(prompt)
     filtered_plan = re.sub(r'<think>.*?</think>\s*', '', plan.content, flags=re.DOTALL)
@@ -277,7 +298,7 @@ def code_llm_func(state):
     # Get Agent Result
     prompt_code = """You are an expert in image analysis, 3D modeling, and Blender scripting. 
             Implement the provided graph and asset list to create the described Landscape in Blender."""
-    code_llm_chat_input = state["plan"]+"\n"+prompt_code
+    code_llm_chat_input = state["plan"]+"\n"+prompt_code+state["vision"]
     code_result = code_llm_chat.invoke(code_llm_chat_input)
 
     print("\n")
