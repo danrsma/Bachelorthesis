@@ -13,7 +13,6 @@ from PIL import Image
 import asyncio
 import tkinter as tk
 from tkinter import filedialog
-import re
 
 
 class InputApp(tk.Tk):
@@ -187,6 +186,7 @@ async def vision_llm_func_feedback(state: MyState) -> MyState:
 
     image_b64= convert_to_base64(pil_image)
 
+
     # Create Vision Agent Chain
     vision_llm_chat = ChatOllama(
         model="llama4:latest",
@@ -197,8 +197,8 @@ async def vision_llm_func_feedback(state: MyState) -> MyState:
     chain = prompt_func_runnable | vision_llm_chat
 
     prompt_vision_loop = """You are an expert in image analysis, 3D modeling, and Blender scripting. 
-            Provide a detailed comparison of the image and the discription.
-            Mark out all the differences.
+            Provide a detailed comparison of the image and the description.
+            Mark out how the image is different from the description.
             """+state["vision"]
     # Get Agent Chain Result
     vision_result = chain.invoke({
@@ -350,7 +350,7 @@ async def tools_llm_func_feedback(state):
         print(f"Error in main execution: {e}")
 
     # Make Viewport Screenshot
-    iter=state["iter"]
+    iter = state["iter"]
     screenshot_code = f"""
         import bpy
 
@@ -368,7 +368,7 @@ async def tools_llm_func_feedback(state):
         # Set the new camera as the active camera
         bpy.context.scene.camera = cam_object
 
-        bpy.context.scene.render.filepath = "C:\\Users\\cross\\Desktop\\Feedback_{iter}.png"
+        bpy.context.scene.render.filepath = f"C:\\Users\\cross\\Desktop\\Feedback_{iter}.png"
         bpy.ops.render.render(write_still=True)
 
         """
@@ -380,7 +380,7 @@ async def tools_llm_func_feedback(state):
         print("\n")
         print("ToolLLM Output:")
         print("\n")
-        print("Screenshot taken.")
+        print(f"Screenshot taken.")
         print("\n")
     except Exception as e:
         print(f"Error in main execution: {e}")
@@ -439,6 +439,7 @@ async def main():
     file_path_loop = "C:\\Users\\cross\\Desktop\\Feedback_1.png"
     output_state["filepath"] = file_path_loop
     input_state = output_state
+
     
     # Start Feedback Loop
     for i in range(19):
@@ -452,7 +453,6 @@ async def main():
         file_path_loop = f"C:\\Users\\cross\\Desktop\\Feedback_{str(i+2)}.png"
         output_state["filepath"] = file_path_loop
         input_state = output_state
-
 
 if __name__ == "__main__":
     # Run the example

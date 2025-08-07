@@ -200,8 +200,8 @@ async def vision_llm_func_feedback(state: MyState) -> MyState:
     chain = prompt_func_runnable | vision_llm_chat
 
     prompt_vision_loop = """You are an expert in image analysis, 3D modeling, and Blender scripting. 
-            Provide a detailed comparison of the image and the discription.
-            Mark out all the differences.
+            Provide a detailed comparison of the image and the description.
+            Mark out how the image is different from the description.
             """+state["vision"]
     # Get Agent Chain Result
     vision_result = chain.invoke({
@@ -223,7 +223,7 @@ async def plan_llm_func(state):
 
     # Create Code Agent
     plan_llm_chat = ChatOllama(
-        model="deeps:latest",
+        model="gptos:latest",
         temperature=0.9,
     )
 
@@ -292,7 +292,7 @@ def code_llm_func(state):
     
     # Create Code Agent
     code_llm_chat = ChatOllama(
-        model="deepc:latest",
+        model="gptos:latest",
         temperature=0.9,
     )
 
@@ -316,7 +316,7 @@ def code_llm_func_feedback(state):
 
     # Create Code Agent
     code_llm_chat = ChatOllama(
-        model="deepc:latest",
+        model="gptos:latest",
         temperature=0.9,
     )
 
@@ -362,8 +362,8 @@ async def tools_llm_func(state):
     
     # Create Llm Chat
     tools_llm_chat = ChatOllama(
-        model="qwen3:latest",
-        temperature=0.0,
+        model="gptos:latest",
+        temperature=0.1,
     )
     
     #Create Tool Agent
@@ -390,8 +390,7 @@ async def tools_llm_func(state):
     filtered_output = re.sub(r'<think>.*?</think>\s*', '', full_output, flags=re.DOTALL)
 
     # Make Viewport Screenshot
-    iter=state["iter"]
-    screenshot_code = f"""
+    screenshot_code = """
         import bpy
 
         # Create a new camera object
@@ -408,7 +407,7 @@ async def tools_llm_func(state):
         # Set the new camera as the active camera
         bpy.context.scene.camera = cam_object
 
-        bpy.context.scene.render.filepath = "C:\\Users\\cross\\Desktop\\Feedback_{iter}.png"
+        bpy.context.scene.render.filepath = "C:\\Users\\cross\\Desktop\\Feedback_1.png"
         bpy.ops.render.render(write_still=True)
 
         """
@@ -458,8 +457,8 @@ async def tools_llm_func_feedback(state):
     
     # Create Llm Chat
     tools_llm_chat = ChatOllama(
-        model="qwen3:latest",
-        temperature=0.0,
+        model="gptos:latest",
+        temperature=0.1,
     )
     
     #Create Tool Agent
@@ -486,7 +485,6 @@ async def tools_llm_func_feedback(state):
     filtered_output = re.sub(r'<think>.*?</think>\s*', '', full_output, flags=re.DOTALL)
 
     # Make Viewport Screenshot
-    iter=state["iter"]
     screenshot_code = f"""
         import bpy
 
@@ -504,7 +502,7 @@ async def tools_llm_func_feedback(state):
         # Set the new camera as the active camera
         bpy.context.scene.camera = cam_object
 
-        bpy.context.scene.render.filepath = "C:\\Users\\cross\\Desktop\\Feedback_{iter}.png"
+        bpy.context.scene.render.filepath = "C:\\Users\\cross\\Desktop\\Feedback_{state["iter"]}.png"
         bpy.ops.render.render(write_still=True)
 
         """
