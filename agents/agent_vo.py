@@ -13,6 +13,8 @@ from PIL import Image
 import asyncio
 import tkinter as tk
 from tkinter import filedialog
+import time
+import textwrap
 
 
 class InputApp(tk.Tk):
@@ -254,20 +256,29 @@ async def tools_llm_func(state):
 
     # Get Agent Result
     try:
+        """
         tool_result = await agent.ainvoke(
             {"messages": [{"role": "user", "content": "You are an expert in image analysis, 3D modeling, and Blender scripting."+
-            "Recreate the provided Scene in Blender. Use Polyhaven assets and Blender Code Execution.\n"+state["vision"]        
+            "Recreate the provided Scene in Blender. Use Polyhaven assets and Blender Code Execution.\n"+state["vision"]  
             }]}
+        )"""
+        tool_result = await agent.ainvoke(
+            {"messages": [HumanMessage(content="You are an expert in image analysis, 3D modeling, and Blender scripting."+
+            "Recreate the provided Scene in Blender. Use Polyhaven assets and Blender Code Execution.\n"+state["vision"])]}
         )
+        
 
     except Exception as e:
         print(f"Error in main execution: {e}")
 
     # Make Viewport Screenshot
     iter = state["iter"]
-    screenshot_code = f"""
+    screenshot_code = textwrap.dedent(f"""
         import bpy
 
+        # Set Eevee as the render engine
+        bpy.context.scene.render.engine = 'BLENDER_EEVEE_NEXT'
+        
         # Create a new camera object
         cam_data = bpy.data.cameras.new(name="MyCamera")
         cam_object = bpy.data.objects.new("MyCamera", cam_data)
@@ -282,17 +293,25 @@ async def tools_llm_func(state):
         # Set the new camera as the active camera
         bpy.context.scene.camera = cam_object
 
-        bpy.context.scene.render.filepath = "C:\\Users\\cross\\Desktop\\Feedback_{iter}.png"
+        bpy.context.scene.render.filepath = "C:/Users/cross/Desktop/Feedback_{iter}.png"
         bpy.ops.render.render(write_still=True)
 
-        """
+        """).strip()
     try:
+        """
         tool_result = await agent.ainvoke(
             {"messages": [{"role": "user", "content": "Execute the following Blender Python Code:\n"+screenshot_code+
             "\nIf it does not work try to fix and reexecute it."}]}
         )
+        """
+        tool_result = await agent.ainvoke(
+            {"messages": [HumanMessage(content="Execute the following Blender Python Code:\n"+screenshot_code+
+            "\nIf it does not work try to fix and reexecute it.")]}
+        )
         print("\n")
         print("ToolLLM Output:")
+        print("\n")
+        print(screenshot_code)
         print("\n")
         print("Screenshot taken.")
         print("\n")
@@ -339,11 +358,17 @@ async def tools_llm_func_feedback(state):
 
     # Get Agent Result
     try:
+        """
         tool_result = await agent.ainvoke(
             {"messages": [{"role": "user", "content": "You are an expert in image analysis, 3D modeling, and Blender scripting."+
             " Improve the Scene in Blender to minimize the differences.\n"+state["visionloop"]+
-            "\n Stick to the description of the scene and try to recreate it.\n"+state["vision"]      
+            "\n Stick to the description of the scene and try to recreate it.\n"+state["vision"]  
             }]}
+        )"""
+        tool_result = await agent.ainvoke(
+            {"messages": [HumanMessage(content="You are an expert in image analysis, 3D modeling, and Blender scripting."+
+            " Improve the Scene in Blender to minimize the differences.\n"+state["visionloop"]+
+            "\n Stick to the description of the scene and try to recreate it.\n"+state["vision"])]}
         )
 
     except Exception as e:
@@ -351,9 +376,12 @@ async def tools_llm_func_feedback(state):
 
     # Make Viewport Screenshot
     iter = state["iter"]
-    screenshot_code = f"""
+    screenshot_code = textwrap.dedent(f"""
         import bpy
-
+        
+        # Set Eevee as the render engine
+        bpy.context.scene.render.engine = 'BLENDER_EEVEE_NEXT'
+        
         # Create a new camera object
         cam_data = bpy.data.cameras.new(name="MyCamera")
         cam_object = bpy.data.objects.new("MyCamera", cam_data)
@@ -368,19 +396,27 @@ async def tools_llm_func_feedback(state):
         # Set the new camera as the active camera
         bpy.context.scene.camera = cam_object
 
-        bpy.context.scene.render.filepath = f"C:\\Users\\cross\\Desktop\\Feedback_{iter}.png"
+        bpy.context.scene.render.filepath = "C:/Users/cross/Desktop/Feedback_{iter}.png"
         bpy.ops.render.render(write_still=True)
 
-        """
+    """).strip()
+    
+
     try:
+        """
         tool_result = await agent.ainvoke(
-            {"messages": [{"role": "user", "content": "Execute the following Blender Python Code:\n"+screenshot_code+
-            "\nIf it does not work try to fix and reexecute it."}]}
+            {"messages": [{"role": "user", "content": "Execute the following Blender Python Code:\n"+screenshot_code}]}
+        )"""
+        tool_result = await agent.ainvoke(
+            {"messages": [HumanMessage(content="Execute the following Blender Python Code:\n"+screenshot_code+
+            "\nIf it does not work try to fix and reexecute it.")]}
         )
         print("\n")
         print("ToolLLM Output:")
         print("\n")
-        print(f"Screenshot taken.")
+        print(screenshot_code)
+        print("\n")
+        print("Screenshot taken.")
         print("\n")
     except Exception as e:
         print(f"Error in main execution: {e}")
@@ -436,23 +472,26 @@ async def main():
     graph = graph.compile()
 
     # Prepare Rendering Loop
-    file_path_loop = "C:\\Users\\cross\\Desktop\\Feedback_1.png"
+    time.sleep(30)
+    file_path_loop = "C:/Users/cross/Desktop/Feedback_1.png"
     output_state["filepath"] = file_path_loop
     input_state = output_state
 
     
     # Start Feedback Loop
-    for i in range(19):
+    for i in range(9):
         print("\n")
         print(f"++++++++++++++++++++++++++++++")
-        print(f"+ Feedback Loop iteration: {str(i+2)} +")
+        print(f"+ Feedback Loop iteration: {i+2} +")
         print(f"++++++++++++++++++++++++++++++")
         print("\n")
         input_state["iter"]=str(i+2)
         output_state = await graph.ainvoke(input_state, config={"recursion_limit": 150})
-        file_path_loop = f"C:\\Users\\cross\\Desktop\\Feedback_{str(i+2)}.png"
+        time.sleep(30)
+        file_path_loop = f"C:/Users/cross/Desktop/Feedback_{str(i+2)}.png"
         output_state["filepath"] = file_path_loop
         input_state = output_state
+
 
 if __name__ == "__main__":
     # Run the example
