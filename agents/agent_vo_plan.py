@@ -375,11 +375,17 @@ async def tools_llm_func(state):
 
     # Get Agent Result
     try:
+        """
         tool_result = await agent.ainvoke(
             {"messages": [{"role": "user", "content": "You are an expert in image analysis, 3D modeling, and Blender scripting."+
             "\nExecute the following Blender Python Code:\n"+state["code"]+
             "\nIf it does not work try to fix and reexecute it."           
             }]}
+        )"""
+        tool_result = await agent.ainvoke(
+            {"messages": [HumanMessage(content="You are an expert in image analysis, 3D modeling, and Blender scripting."+
+            "\nExecute the following Blender Python Code:\n"+state["code"]+
+            "\nIf it does not work try to fix and reexecute it.")]}
         )
 
     except Exception as e:
@@ -407,15 +413,22 @@ async def tools_llm_func(state):
         # Set the new camera as the active camera
         bpy.context.scene.camera = cam_object
 
-        bpy.context.scene.render.filepath = "C:\\Users\\cross\\Desktop\\Feedback_1.png"
+        bpy.context.scene.render.filepath = "C:/Users/cross/Desktop/Feedback_1.png"
         bpy.ops.render.render(write_still=True)
 
         """
     try:
+        """
         tool_result = await agent.ainvoke(
             {"messages": [{"role": "user", "content": "Execute the following Blender Python Code:\n"+screenshot_code+
             "\nIf it does not work try to fix and reexecute it."}]}
+        )"""
+        tool_result = await agent.ainvoke(
+            {"messages": [HumanMessage(content="Execute the following Blender Python Code:\n"+screenshot_code+
+            "\nIf it does not work try to fix and reexecute it.")]}
         )
+
+
         print("\n")
         print("ToolLLM Output:")
         print("\n")
@@ -470,11 +483,17 @@ async def tools_llm_func_feedback(state):
 
     # Get Agent Result
     try:
+        """
         tool_result = await agent.ainvoke(
             {"messages": [{"role": "user", "content": "You are an expert in image analysis, 3D modeling, and Blender scripting."+
             "\nExecute the following Blender Python Code:\n"+state["code"]+
             "\nIf it does not work try to fix and reexecute it."      
             }]}
+        )"""
+        tool_result = await agent.ainvoke(
+            {"messages": [HumanMessage(content="You are an expert in image analysis, 3D modeling, and Blender scripting."+
+            "\nExecute the following Blender Python Code:\n"+state["code"]+
+            "\nIf it does not work try to fix and reexecute it.")]}
         )
 
     except Exception as e:
@@ -502,15 +521,21 @@ async def tools_llm_func_feedback(state):
         # Set the new camera as the active camera
         bpy.context.scene.camera = cam_object
 
-        bpy.context.scene.render.filepath = "C:\\Users\\cross\\Desktop\\Feedback_{state["iter"]}.png"
+        bpy.context.scene.render.filepath = "C:/Users/cross/Desktop/Feedback_{state["iter"]}.png"
         bpy.ops.render.render(write_still=True)
 
         """
     try:
+        """
         tool_result = await agent.ainvoke(
             {"messages": [{"role": "user", "content": "Execute the following Blender Python Code:\n"+screenshot_code+
             "\nIf it does not work try to fix and reexecute it."}]}
+        )"""
+        tool_result = await agent.ainvoke(
+            {"messages": [HumanMessage(content="Execute the following Blender Python Code:\n"+screenshot_code+
+            "\nIf it does not work try to fix and reexecute it.")]}
         )
+
         print("\n")
         print("ToolLLM Output:")
         print("\n")
@@ -578,12 +603,12 @@ async def main():
     graph = graph.compile()
 
     # Prepare Rendering Loop
-    file_path_loop = "C:\\Users\\cross\\Desktop\\Feedback_1.png"
+    file_path_loop = "C:/Users/cross/Desktop/Feedback_1.png"
     output_state["filepath"] = file_path_loop
     input_state = output_state
     
     # Start Feedback Loop
-    for i in range(19):
+    for i in range(9):
         print("\n")
         print(f"++++++++++++++++++++++++++++++")
         print(f"+ Feedback Loop iteration: {str(i+2)} +")
@@ -591,7 +616,7 @@ async def main():
         print("\n")
         input_state["iter"]=str(i+2)
         output_state = await graph.ainvoke(input_state, config={"recursion_limit": 150})
-        file_path_loop = f"C:\\Users\\cross\\Desktop\\Feedback_{str(i+2)}.png"
+        file_path_loop = f"C:/Users/cross/Desktop/Feedback_{str(i+2)}.png"
         output_state["filepath"] = file_path_loop
         input_state = output_state
 
