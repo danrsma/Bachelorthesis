@@ -14,7 +14,7 @@ import asyncio
 import tkinter as tk
 from tkinter import filedialog
 import time
-import textwrap
+
 
 
 class InputApp(tk.Tk):
@@ -273,8 +273,7 @@ async def tools_llm_func(state):
 
     # Make Viewport Screenshot
     iter = state["iter"]
-    screenshot_code = textwrap.dedent(f"""
-        import bpy
+    screenshot_code = f"""import bpy
 
         # Set Eevee as the render engine
         bpy.context.scene.render.engine = 'BLENDER_EEVEE_NEXT'
@@ -296,7 +295,7 @@ async def tools_llm_func(state):
         bpy.context.scene.render.filepath = "C:/Users/cross/Desktop/Feedback_{iter}.png"
         bpy.ops.render.render(write_still=True)
 
-        """).strip()
+        """
     try:
         """
         tool_result = await agent.ainvoke(
@@ -376,8 +375,7 @@ async def tools_llm_func_feedback(state):
 
     # Make Viewport Screenshot
     iter = state["iter"]
-    screenshot_code = textwrap.dedent(f"""
-        import bpy
+    screenshot_code = f"""import bpy
         
         # Set Eevee as the render engine
         bpy.context.scene.render.engine = 'BLENDER_EEVEE_NEXT'
@@ -398,8 +396,7 @@ async def tools_llm_func_feedback(state):
 
         bpy.context.scene.render.filepath = "C:/Users/cross/Desktop/Feedback_{iter}.png"
         bpy.ops.render.render(write_still=True)
-
-    """).strip()
+        """
     
 
     try:
