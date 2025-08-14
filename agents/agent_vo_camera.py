@@ -120,9 +120,11 @@ async def vision_llm_func(state: MyState) -> MyState:
             temperature=0.5,
         )
 
-        # Get Agent Result
+        # Create Prompt
         prompt = """You are an expert in image analysis, 3D modeling, and Blender scripting. 
             Provide a detailed and extensive description of the scene and list all assets including hdri, models and textures you will need to create it."""+state["userinput"]
+       
+        # Get Agent Result
         vision_result = vision_llm_chat.invoke(prompt)
 
         # Ouput Image LLM
@@ -148,12 +150,13 @@ async def vision_llm_func(state: MyState) -> MyState:
     # Create Vision Agent Chain
     vision_llm_chat = ChatOllama(
         model="llama4:latest",
-        temperature=0.9,
+        temperature=0.5,
     )
 
     prompt_func_runnable = RunnableLambda(prompt_func)
     chain = prompt_func_runnable | vision_llm_chat
 
+    # Create Prompt
     prompt_vision = """You are an expert in image analysis, 3D modeling, and Blender scripting. 
         Provide a detailed and extensive description of the image and list all assets including hdri, models and textures you will need to create it."""
 
@@ -178,35 +181,70 @@ async def vision_llm_func_feedback(state: MyState) -> MyState:
     # Get Image Data
     file_path = state["filepath"]
     
+    file_path_1 = file_path+"_1.png"
+    file_path_2 = file_path+"_2.png"
+    file_path_3 = file_path+"_3.png"
+    file_path_4 = file_path+"_4.png"
+    
     try:
 
-        pil_image = Image.open(file_path)
+        pil_image_1 = Image.open(file_path_1)
+        pil_image_2 = Image.open(file_path_2)
+        pil_image_3 = Image.open(file_path_3)
+        pil_image_4 = Image.open(file_path_4)
 
     except Exception as e:
         print(f"Error in main execution: {e}")
 
 
-    image_b64= convert_to_base64(pil_image)
+    image_b64_1 = convert_to_base64(pil_image_1)
+    image_b64_2 = convert_to_base64(pil_image_2)
+    image_b64_3 = convert_to_base64(pil_image_3)
+    image_b64_4 = convert_to_base64(pil_image_4)
 
+    images = [image_b64_1,image_b64_2,image_b64_3,image_b64_4]
 
     # Create Vision Agent Chain
     vision_llm_chat = ChatOllama(
         model="llama4:latest",
-        temperature=0.9,
+        temperature=0.5,
     )
 
     prompt_func_runnable = RunnableLambda(prompt_func)
     chain = prompt_func_runnable | vision_llm_chat
 
+    # Create Prompt
     prompt_vision_loop = """You are an expert in image analysis, 3D modeling, and Blender scripting. 
             Provide a detailed comparison of the image and the description.
             Mark out how the image is different from the description.
+            Describe the errors you see in the image.
             """+state["vision"]
+
     # Get Agent Chain Result
-    vision_result = chain.invoke({
+    vision_result1 = chain.invoke({
         "text": prompt_vision_loop,
-        "image": image_b64,
+        "image": image_b64_1,
     })
+    # Get Agent Chain Result
+    vision_result2 = chain.invoke({
+        "text": prompt_vision_loop,
+        "image": image_b64_2,
+    })
+    # Get Agent Chain Result
+    vision_result3 = chain.invoke({
+        "text": prompt_vision_loop,
+        "image": image_b64_3,
+    })
+    # Get Agent Chain Result
+    vision_result4 = chain.invoke({
+        "text": prompt_vision_loop,
+        "image": image_b64_4,
+    })
+    # Summarize Results
+    vision_prompt_loop = f"""List all the different errors, assets and differences from the following texts.\n
+    {vision_result1.content}\n{vision_result2.content}\n{vision_result3.content}\n{vision_result4.content}
+    """
+    vision_result = vision_llm_chat.invoke(vision_prompt_loop)
 
     print("\n")
     print("ImageLLM Output:")
@@ -256,12 +294,7 @@ async def tools_llm_func(state):
 
     # Get Agent Result
     try:
-        """
-        tool_result = await agent.ainvoke(
-            {"messages": [{"role": "user", "content": "You are an expert in image analysis, 3D modeling, and Blender scripting."+
-            "Recreate the provided Scene in Blender. Use Polyhaven assets and Blender Code Execution.\n"+state["vision"]  
-            }]}
-        )"""
+
         tool_result = await agent.ainvoke(
             {"messages": [HumanMessage(content="You are an expert in image analysis, 3D modeling, and Blender scripting."+
             "Recreate the provided Scene in Blender. Use Polyhaven assets and Blender Code Execution.\n"+state["vision"])]}
@@ -271,38 +304,55 @@ async def tools_llm_func(state):
     except Exception as e:
         print(f"Error in main execution: {e}")
 
-    # Make Viewport Screenshot
+    # Make Viewport Screenshots
     iter = state["iter"]
     screenshot_code = f"""import bpy
+    import math
+    import mathutils
 
-        # Set Eevee as the render engine
-        bpy.context.scene.render.engine = 'BLENDER_EEVEE_NEXT'
+    # Set Eevee Next as render engine
+    bpy.context.scene.render.engine = 'BLENDER_EEVEE_NEXT'
+
+    # Remove existing cameras (optional)
+    for obj in list(bpy.data.objects):
+        if obj.type == 'CAMERA':
+            bpy.data.objects.remove(obj)
+
+    # Camera parameters
+    radius = 30      # distance from center
+    height = 15      # Z height
+    center = (0, 0, 5)
+    angles_deg = [0, 90, 180, 270]  # positions around the object
+
+    for i, angle_deg in enumerate(angles_deg, start=1):
+        angle_rad = math.radians(angle_deg)
         
-        # Create a new camera object
-        cam_data = bpy.data.cameras.new(name="MyCamera")
-        cam_object = bpy.data.objects.new("MyCamera", cam_data)
-
-        # Set camera location and rotation
-        cam_object.location = (30, 0, 15)
-        cam_object.rotation_euler = (1.3, 0, 1.57)
-
-        # Link the camera to the current scene
+        # Camera position
+        x = center[0] + radius * math.cos(angle_rad)
+        y = center[1] + radius * math.sin(angle_rad)
+        z = height
+        
+        # Create new camera
+        cam_data = bpy.data.cameras.new(name="Camera_"+str(i))
+        cam_object = bpy.data.objects.new("Camera_"+str(i), cam_data)
+        cam_object.location = (x, y, z)
+        
+        # Rotate camera to face the object
+        direction = mathutils.Vector(center) - cam_object.location
+        rot_quat = direction.to_track_quat('-Z', 'Y')
+        cam_object.rotation_euler = rot_quat.to_euler()
+        
+        # Link camera to scene
         bpy.context.collection.objects.link(cam_object)
-
-        # Set the new camera as the active camera
+        
+        # Set as active camera and render
         bpy.context.scene.camera = cam_object
-
-        bpy.context.scene.render.filepath = "C:/Users/cross/Desktop/Feedback_{iter}.png"
+        bpy.context.scene.render.filepath = "C:/Users/cross/Desktop/Feedback_{iter}_+str(i)+".png"
         bpy.ops.render.render(write_still=True)
 
-        """
+    """
     try:
-        """
-        tool_result = await agent.ainvoke(
-            {"messages": [{"role": "user", "content": "Execute the following Blender Python Code:\n"+screenshot_code+
-            "\nIf it does not work try to fix and reexecute it."}]}
-        )
-        """
+
         tool_result = await agent.ainvoke(
             {"messages": [HumanMessage(content="Execute the following Blender Python Code:\n"+screenshot_code+
             "\nIf it does not work try to fix and reexecute it.")]}
@@ -357,53 +407,66 @@ async def tools_llm_func_feedback(state):
 
     # Get Agent Result
     try:
-        """
-        tool_result = await agent.ainvoke(
-            {"messages": [{"role": "user", "content": "You are an expert in image analysis, 3D modeling, and Blender scripting."+
-            " Improve the Scene in Blender to minimize the differences.\n"+state["visionloop"]+
-            "\n Stick to the description of the scene and try to recreate it.\n"+state["vision"]  
-            }]}
-        )"""
+
         tool_result = await agent.ainvoke(
             {"messages": [HumanMessage(content="You are an expert in image analysis, 3D modeling, and Blender scripting."+
-            " Improve the Scene in Blender to minimize the differences.\n"+state["visionloop"]+
-            "\n Stick to the description of the scene and try to recreate it.\n"+state["vision"])]}
+            " Improve the Scene in Blender to minimize the differences and errors.\n"+state["visionloop"]+
+            "\n Stick to the description of the scene.\n"+state["vision"])]}
         )
 
     except Exception as e:
         print(f"Error in main execution: {e}")
 
-    # Make Viewport Screenshot
+    # Make Viewport Screenshots
     iter = state["iter"]
     screenshot_code = f"""import bpy
-        
-        # Set Eevee as the render engine
-        bpy.context.scene.render.engine = 'BLENDER_EEVEE_NEXT'
-        
-        # Create a new camera object
-        cam_data = bpy.data.cameras.new(name="MyCamera")
-        cam_object = bpy.data.objects.new("MyCamera", cam_data)
+    import math
+    import mathutils
 
-        # Set camera location and rotation
-        cam_object.location = (30, 0, 15)
-        cam_object.rotation_euler = (1.3, 0, 1.57)
+    # Set Eevee Next as render engine
+    bpy.context.scene.render.engine = 'BLENDER_EEVEE_NEXT'
 
-        # Link the camera to the current scene
+    # Remove existing cameras (optional)
+    for obj in list(bpy.data.objects):
+        if obj.type == 'CAMERA':
+            bpy.data.objects.remove(obj)
+
+    # Camera parameters
+    radius = 30      # distance from center
+    height = 15      # Z height
+    center = (0, 0, 5)
+    angles_deg = [0, 90, 180, 270]  # positions around the object
+
+    for i, angle_deg in enumerate(angles_deg, start=1):
+        angle_rad = math.radians(angle_deg)
+        
+        # Camera position
+        x = center[0] + radius * math.cos(angle_rad)
+        y = center[1] + radius * math.sin(angle_rad)
+        z = height
+        
+        # Create new camera
+        cam_data = bpy.data.cameras.new(name="Camera_"+str(i))
+        cam_object = bpy.data.objects.new("Camera_"+str(i), cam_data)
+        cam_object.location = (x, y, z)
+        
+        # Rotate camera to face the object
+        direction = mathutils.Vector(center) - cam_object.location
+        rot_quat = direction.to_track_quat('-Z', 'Y')
+        cam_object.rotation_euler = rot_quat.to_euler()
+        
+        # Link camera to scene
         bpy.context.collection.objects.link(cam_object)
-
-        # Set the new camera as the active camera
+        
+        # Set as active camera and render
         bpy.context.scene.camera = cam_object
-
-        bpy.context.scene.render.filepath = "C:/Users/cross/Desktop/Feedback_{iter}.png"
+        bpy.context.scene.render.filepath = "C:/Users/cross/Desktop/Feedback_{iter}_+str(i)+".png"
         bpy.ops.render.render(write_still=True)
-        """
     
-
+    """
+    
     try:
-        """
-        tool_result = await agent.ainvoke(
-            {"messages": [{"role": "user", "content": "Execute the following Blender Python Code:\n"+screenshot_code}]}
-        )"""
+
         tool_result = await agent.ainvoke(
             {"messages": [HumanMessage(content="Execute the following Blender Python Code:\n"+screenshot_code+
             "\nIf it does not work try to fix and reexecute it.")]}
@@ -470,7 +533,7 @@ async def main():
 
     # Prepare Rendering Loop
     time.sleep(30)
-    file_path_loop = "C:/Users/cross/Desktop/Feedback_1.png"
+    file_path_loop = "C:/Users/cross/Desktop/Feedback_1"
     output_state["filepath"] = file_path_loop
     input_state = output_state
 
@@ -485,7 +548,7 @@ async def main():
         input_state["iter"]=str(i+2)
         output_state = await graph.ainvoke(input_state, config={"recursion_limit": 150})
         time.sleep(30)
-        file_path_loop = f"C:/Users/cross/Desktop/Feedback_{str(i+2)}.png"
+        file_path_loop = f"C:/Users/cross/Desktop/Feedback_{str(i+2)}"
         output_state["filepath"] = file_path_loop
         input_state = output_state
 

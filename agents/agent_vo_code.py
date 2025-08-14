@@ -148,7 +148,7 @@ async def vision_llm_func(state: MyState) -> MyState:
 
     # Create Vision Agent Chain
     vision_llm_chat = ChatOllama(
-        model="gemma3:12b",
+        model="gemma:latest",
         temperature=0.9,
     )
 
@@ -176,7 +176,7 @@ def code_llm_func(state):
 
     # Create Code Agent
     code_llm_chat = ChatOllama(
-        model="hf.co/mradermacher/BlenderLLM-GGUF:Q8_0",
+        model="blend:latest",
         temperature=0.9,
     )
 
@@ -226,7 +226,7 @@ async def tools_llm_func(state):
 
     # Create Tool Agent
     tools_llm_chat = ChatOllama(
-        model="qwen3:8b",
+        model="qwen:latest",
         temperature=0.0,
     )
     agent = create_react_agent(
