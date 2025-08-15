@@ -107,6 +107,21 @@ def convert_to_base64(pil_image):
     img_str = base64.b64encode(buffered.getvalue()).decode("utf-8")
     return img_str
 
+def combine_images_side_by_side(img1, img2):
+
+    if img1.height != img2.height:
+        new_height = max(img1.height, img2.height)
+        img1 = img1.resize((int(img1.width * new_height / img1.height), new_height))
+        img2 = img2.resize((int(img2.width * new_height / img2.height), new_height))
+
+    total_width = img1.width + img2.width
+    combined = Image.new("RGBA", (total_width, img1.height))
+    
+    combined.paste(img1, (0, 0))
+    combined.paste(img2, (img1.width, 0))
+    
+    return combined
+
 
 async def vision_llm_func(state: MyState) -> MyState:
 
@@ -347,7 +362,7 @@ async def tools_llm_func(state):
         
         # Set as active camera and render
         bpy.context.scene.camera = cam_object
-        bpy.context.scene.render.filepath = "C:/Users/cross/Desktop/Feedback_{iter}_+str(i)+".png"
+        bpy.context.scene.render.filepath = "C:/Users/cross/Desktop/Feedback_{iter}_"+str(i)+".png"
         bpy.ops.render.render(write_still=True)
 
     """
@@ -405,6 +420,29 @@ async def tools_llm_func_feedback(state):
     )
 
 
+    # Save Blend File
+    blendfile_code = """import bpy
+
+    # Save to a specific file path
+    bpy.ops.wm.save_as_mainfile(filepath="C:/Users/cross/Desktop/result.blend")
+
+    """
+    try:
+        tools_result = await agent.ainvoke(
+            {"messages": [HumanMessage(content="Execute the following Blender Python Code:\n"+blendfile_code+
+            "\nIf it does not work try to fix and reexecute it.")]}
+        )
+        print("\n")
+        print("ToolLLM Output:")
+        print("\n")
+        print(blendfile_code)
+        print("\n")
+        print("Blendfile saved.")
+        print("\n")
+    except Exception as e:
+        print(f"Error in main execution: {e}")
+
+
     # Get Agent Result
     try:
 
@@ -460,7 +498,7 @@ async def tools_llm_func_feedback(state):
         
         # Set as active camera and render
         bpy.context.scene.camera = cam_object
-        bpy.context.scene.render.filepath = "C:/Users/cross/Desktop/Feedback_{iter}_+str(i)+".png"
+        bpy.context.scene.render.filepath = "C:/Users/cross/Desktop/Feedback_{iter}_"+str(i)+".png"
         bpy.ops.render.render(write_still=True)
     
     """
@@ -471,9 +509,6 @@ async def tools_llm_func_feedback(state):
             {"messages": [HumanMessage(content="Execute the following Blender Python Code:\n"+screenshot_code+
             "\nIf it does not work try to fix and reexecute it.")]}
         )
-        print("\n")
-        print("ToolLLM Output:")
-        print("\n")
         print(screenshot_code)
         print("\n")
         print("Screenshot taken.")
@@ -483,7 +518,146 @@ async def tools_llm_func_feedback(state):
 
     return state
 
+async def branching_feedback(state):
+    # Get Image Data
+    file_path = state["filepath"]
+    
+    file_path_1 = file_path+"_1.png"
+    file_path_2 = file_path+"_2.png"
+    file_path_3 = file_path+"_3.png"
+    file_path_4 = file_path+"_4.png"
+    
+    file_path_old = f"C:/Users/cross/Desktop/Feedback_{str(iter-1)}"
 
+    file_path_old_1 = file_path_old+"_1.png"
+    file_path_old_2 = file_path_old+"_2.png"
+    file_path_old_3 = file_path_old+"_3.png"
+    file_path_old_4 = file_path_old+"_4.png"
+
+    try:
+
+        pil_image_1 = Image.open(file_path_1)
+        pil_image_2 = Image.open(file_path_2)
+        pil_image_3 = Image.open(file_path_3)
+        pil_image_4 = Image.open(file_path_4)
+        pil_image_1 = Image.open(file_path_old_1)
+        pil_image_2 = Image.open(file_path_old_2)
+        pil_image_3 = Image.open(file_path_old_3)
+        pil_image_4 = Image.open(file_path_old_4)
+
+    except Exception as e:
+        print(f"Error in main execution: {e}")
+
+
+    image_b64_1 = convert_to_base64(pil_image_1)
+    image_b64_2 = convert_to_base64(pil_image_2)
+    image_b64_3 = convert_to_base64(pil_image_3)
+    image_b64_4 = convert_to_base64(pil_image_4)
+    image_b64_old_1 = convert_to_base64(pil_image_1)
+    image_b64_old_2 = convert_to_base64(pil_image_2)
+    image_b64_old_3 = convert_to_base64(pil_image_3)
+    image_b64_old_4 = convert_to_base64(pil_image_4)
+
+    images = [image_b64_1,image_b64_2,image_b64_3,image_b64_4]
+    images_old = [image_b64_old_1,image_b64_old_2,image_b64_old_3,image_b64_old_4]
+    images_comb = []
+    for i,j in zip(images,images_old):
+        images_comb.append(combine_images_side_by_side(i,j))
+
+    # Create Vision Agent Chain
+    vision_llm_chat = ChatOllama(
+        model="llama4:latest",
+        temperature=0.5,
+    )
+
+    prompt_func_runnable = RunnableLambda(prompt_func)
+    chain = prompt_func_runnable | vision_llm_chat
+
+    # Create Prompt
+    prompt_vision_loop = """You are an expert in image analysis and 3D modeling. 
+            Wich side of the image better matches with the description left or right?
+            Only Output Left or Right!!!
+            """+state["vision"]
+
+    # Get Agent Chain Result
+    vision_result1 = chain.invoke({
+        "text": prompt_vision_loop,
+        "image": images_comb[0],
+    })
+    # Get Agent Chain Result
+    vision_result2 = chain.invoke({
+        "text": prompt_vision_loop,
+        "image": images_comb[1],
+    })
+    # Get Agent Chain Result
+    vision_result3 = chain.invoke({
+        "text": prompt_vision_loop,
+        "image": images_comb[2],
+    })
+    # Get Agent Chain Result
+    vision_result4 = chain.invoke({
+        "text": prompt_vision_loop,
+        "image": images_comb[3],
+    })
+
+
+    # Get MCP-Tools From Server
+    client = MultiServerMCPClient(
+        {
+            "blender_mcp": {
+                "command": "uvx",
+                "args": ["blender-mcp"],
+                "transport": "stdio",
+            }
+        }
+    )
+    try:
+
+        tools = await client.get_tools()
+
+    except Exception as e:
+        print(f"Error in main execution: {e}")
+
+    # Filter The Tools
+    filtered_tools = [t for t in tools if t.name not in {"get_hyper3d_status", "get_sketchfab_status", "search_sketchfab_models","download_sketchfab_models","generate_hyper3d_model_via_text","generate_hyper3d_model_via_images","poll_rodin_job_status","import_generated_asset"}]
+    
+    # Create Llm Chat
+    tools_llm_chat = ChatOllama(
+        model="gpt-oss:120b",
+        temperature=0.0,
+    )
+    
+    # Create Tool Agent
+    agent = create_react_agent(
+        model = tools_llm_chat,
+        tools=filtered_tools
+    )
+    
+
+    # Load Blend File
+    blendfile_code = """import bpy
+
+    # Open a specific file path
+    bpy.ops.wm.open_mainfile(filepath="C:/Users/cross/Desktop/result.blend")
+
+    """
+    # Branch Results Prompt
+    branch_prompt = f"""Is there more Left or Right in:\n
+        {vision_result1.content}\n{vision_result2.content}\n{vision_result3.content}\n{vision_result4.content}?
+        If there is more Right execute the following Blender Code: {blendfile_code}
+        If there is more Left do nothing and end execution.
+        """
+
+    # Branch Result
+    try:
+
+        tool_result = await agent.ainvoke(
+            {"messages": [HumanMessage(content=branch_prompt)]}
+        )
+
+    except Exception as e:
+        print(f"Error in main execution: {e}")
+        
 
 async def main():
 
@@ -526,9 +700,11 @@ async def main():
     graph = StateGraph(MyState)
     graph.add_node("vision_llm", vision_llm_func_feedback)
     graph.add_node("tools_llm", tools_llm_func_feedback)
+    graph.add_node("branching",branching_feedback)
     graph.add_edge(START,"vision_llm")
     graph.add_edge("vision_llm", "tools_llm")
-    graph.add_edge("tools_llm",END)
+    graph.add_edge("tools_llm","branching")
+    graph.add_edge("branching",END)
     graph = graph.compile()
 
     # Prepare Rendering Loop
