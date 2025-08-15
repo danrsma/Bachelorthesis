@@ -217,7 +217,6 @@ async def vision_llm_func_feedback(state: MyState) -> MyState:
     image_b64_3 = convert_to_base64(pil_image_3)
     image_b64_4 = convert_to_base64(pil_image_4)
 
-    images = [image_b64_1,image_b64_2,image_b64_3,image_b64_4]
 
     # Create Vision Agent Chain
     vision_llm_chat = ChatOllama(
@@ -233,6 +232,7 @@ async def vision_llm_func_feedback(state: MyState) -> MyState:
             Provide a detailed comparison of the image and the description.
             Mark out how the image is different from the description.
             Describe the errors you see in the image.
+            Describe adjustments one could make to improve the scene.
             """+state["vision"]
 
     # Get Agent Chain Result
@@ -448,7 +448,7 @@ async def tools_llm_func_feedback(state):
 
         tool_result = await agent.ainvoke(
             {"messages": [HumanMessage(content="You are an expert in image analysis, 3D modeling, and Blender scripting."+
-            " Improve the Scene in Blender to minimize the differences and errors.\n"+state["visionloop"]+
+            " Adjust the Scene in Blender to minimize the differences and errors.\n"+state["visionloop"]+
             "\n Stick to the description of the scene.\n"+state["vision"])]}
         )
 
@@ -541,29 +541,20 @@ async def branching_feedback(state):
         pil_image_2 = Image.open(file_path_2)
         pil_image_3 = Image.open(file_path_3)
         pil_image_4 = Image.open(file_path_4)
-        pil_image_1 = Image.open(file_path_old_1)
-        pil_image_2 = Image.open(file_path_old_2)
-        pil_image_3 = Image.open(file_path_old_3)
-        pil_image_4 = Image.open(file_path_old_4)
+        pil_image_old_1 = Image.open(file_path_old_1)
+        pil_image_old_2 = Image.open(file_path_old_2)
+        pil_image_old_3 = Image.open(file_path_old_3)
+        pil_image_old_4 = Image.open(file_path_old_4)
 
     except Exception as e:
         print(f"Error in main execution: {e}")
 
 
-    image_b64_1 = convert_to_base64(pil_image_1)
-    image_b64_2 = convert_to_base64(pil_image_2)
-    image_b64_3 = convert_to_base64(pil_image_3)
-    image_b64_4 = convert_to_base64(pil_image_4)
-    image_b64_old_1 = convert_to_base64(pil_image_1)
-    image_b64_old_2 = convert_to_base64(pil_image_2)
-    image_b64_old_3 = convert_to_base64(pil_image_3)
-    image_b64_old_4 = convert_to_base64(pil_image_4)
-
-    images = [image_b64_1,image_b64_2,image_b64_3,image_b64_4]
-    images_old = [image_b64_old_1,image_b64_old_2,image_b64_old_3,image_b64_old_4]
+    images = [pil_image_1,pil_image_2,pil_image_3,pil_image_4]
+    images_old = [pil_image_old_1,pil_image_old_2,pil_image_old_3,pil_image_old_4]
     images_comb = []
     for i,j in zip(images,images_old):
-        images_comb.append(combine_images_side_by_side(i,j))
+        images_comb.append(convert_to_base64(combine_images_side_by_side(i,j)))
 
     # Create Vision Agent Chain
     vision_llm_chat = ChatOllama(
@@ -577,7 +568,6 @@ async def branching_feedback(state):
     # Create Prompt
     prompt_vision_loop = """You are an expert in image analysis and 3D modeling. 
             Wich side of the image better matches with the description left or right?
-            Only Output Left or Right!!!
             """+state["vision"]
 
     # Get Agent Chain Result
@@ -655,6 +645,11 @@ async def branching_feedback(state):
         tool_result = await agent.ainvoke(
             {"messages": [HumanMessage(content=branch_prompt)]}
         )
+        print("\n")
+        print("Branching Ouput:")
+        print("\n")
+        print(f"{vision_result1.content}\n{vision_result2.content}\n{vision_result3.content}\n{vision_result4.content}")
+        print("\n")
 
     except Exception as e:
         print(f"Error in main execution: {e}")
