@@ -554,7 +554,9 @@ async def branching_feedback(state):
     images_old = [pil_image_old_1,pil_image_old_2,pil_image_old_3,pil_image_old_4]
     images_comb = []
     for i,j in zip(images,images_old):
-        images_comb.append(convert_to_base64(combine_images_side_by_side(i,j)))
+        combine = combine_images_side_by_side(i,j)
+        convert = convert_to_base64(combine)
+        images_comb.append(convert)
 
     # Create Vision Agent Chain
     vision_llm_chat = ChatOllama(
@@ -568,7 +570,7 @@ async def branching_feedback(state):
     # Create Prompt
     prompt_vision_loop = """You are an expert in image analysis and 3D modeling. 
             Wich side of the image better matches with the description left or right?
-            """+state["vision"]
+            """+state["vision"]+"""Only Output left or right!"""
 
     # Get Agent Chain Result
     vision_result1 = chain.invoke({
