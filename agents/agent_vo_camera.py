@@ -527,6 +527,7 @@ async def branching_feedback(state):
     file_path_3 = file_path+"_3.png"
     file_path_4 = file_path+"_4.png"
     
+    iter = state["iter"]
     file_path_old = f"C:/Users/cross/Desktop/Feedback_{str(iter-1)}"
 
     file_path_old_1 = file_path_old+"_1.png"
