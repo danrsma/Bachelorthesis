@@ -303,7 +303,7 @@ async def tools_llm_func(state):
     # Create Tool Agent
     agent = create_react_agent(
         model = tools_llm_chat,
-        tools=filtered_tools
+        tools=tools
     )
 
 
@@ -382,6 +382,25 @@ async def tools_llm_func(state):
 
     except Exception as e:
         print(f"Error in main execution: {e}")
+    
+    # Save Blend File
+    blendfile_code = """import bpy
+
+    # Save to a specific file path
+    bpy.ops.wm.save_as_mainfile(filepath="C:/Users/cross/Desktop/result.blend")
+
+    """
+    try:
+        tools_result = await agent.ainvoke(
+            {"messages": [HumanMessage(content="Execute the following Blender Python Code:\n"+blendfile_code+
+            "\nIf it does not work try to fix and reexecute it.")]}
+        )
+        print(blendfile_code)
+        print("\n")
+        print("Blendfile saved.")
+        print("\n")
+    except Exception as e:
+        print(f"Error in main execution: {e}")
 
     return state
 
@@ -416,32 +435,13 @@ async def tools_llm_func_feedback(state):
     #Create Tool Agent
     agent = create_react_agent(
         model = tools_llm_chat,
-        tools=filtered_tools
+        tools=tools
     )
 
-
-    # Save Blend File
-    blendfile_code = """import bpy
-
-    # Save to a specific file path
-    bpy.ops.wm.save_as_mainfile(filepath="C:/Users/cross/Desktop/result.blend")
-
-    """
-    try:
-        tools_result = await agent.ainvoke(
-            {"messages": [HumanMessage(content="Execute the following Blender Python Code:\n"+blendfile_code+
-            "\nIf it does not work try to fix and reexecute it.")]}
-        )
-        print("\n")
-        print("ToolLLM Output:")
-        print("\n")
-        print(blendfile_code)
-        print("\n")
-        print("Blendfile saved.")
-        print("\n")
-    except Exception as e:
-        print(f"Error in main execution: {e}")
-
+    # Output 
+    print("\n")
+    print("ToolLLM Output:")
+    print("\n")
 
     # Get Agent Result
     try:
@@ -623,22 +623,30 @@ async def branching_feedback(state):
     # Create Tool Agent
     agent = create_react_agent(
         model = tools_llm_chat,
-        tools=filtered_tools
+        tools=tools
     )
     
 
     # Load Blend File
-    blendfile_code = """import bpy
+    blendfile_open = """import bpy
 
     # Open a specific file path
     bpy.ops.wm.open_mainfile(filepath="C:/Users/cross/Desktop/result.blend")
 
     """
+        # Save Blend File
+    blendfile_save = """import bpy
+
+    # Save to a specific file path
+    bpy.ops.wm.save_as_mainfile(filepath="C:/Users/cross/Desktop/result.blend")
+
+    """
+
     # Branch Results Prompt
     branch_prompt = f"""Is there more Left or Right in:\n
         {vision_result1.content}\n{vision_result2.content}\n{vision_result3.content}\n{vision_result4.content}?
-        If there is more Right execute the following Blender Code: {blendfile_code}
-        If there is more Left do nothing and end execution.
+        If there is more Right execute the following Blender Code: {blendfile_open}
+        If there is more Left execute the following Blender Code: {blendfile_save}
         """
 
     # Branch Result
