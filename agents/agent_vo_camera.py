@@ -137,7 +137,8 @@ async def vision_llm_func(state: MyState) -> MyState:
 
         # Create Prompt
         prompt = """You are an expert in image analysis, 3D modeling, and Blender scripting. 
-            Provide a detailed and extensive description of the scene and list all assets including hdri, models and textures you will need to create it."""+state["userinput"]
+            Provide a detailed and extensive description of the scene and list all assets including hdri, models and textures you will need to create it.
+            Furthermore Provide a Creation Plan consisting of simple shapes for each object."""+state["userinput"]
        
         # Get Agent Result
         vision_result = vision_llm_chat.invoke(prompt)
@@ -173,7 +174,8 @@ async def vision_llm_func(state: MyState) -> MyState:
 
     # Create Prompt
     prompt_vision = """You are an expert in image analysis, 3D modeling, and Blender scripting. 
-        Provide a detailed and extensive description of the image and list all assets including hdri, models and textures you will need to create it."""
+        Provide a detailed and extensive description of the image and list all assets including hdri, models and textures you will need to create it.
+        Furthermore Provide a Creation Plan consisting of simple shapes for each object."""
 
     # Get Agent Chain Result
     vision_result = chain.invoke({
@@ -281,6 +283,11 @@ async def tools_llm_func(state):
                 "command": "uvx",
                 "args": ["blender-mcp"],
                 "transport": "stdio",
+            },
+            "ragflow_mcp": {
+                "url": "http://127.0.0.1:9382/mcp",
+                "headers": {"api_key": "ragflow-YwMWYyZTc0N2M1YjExZjBiYjUwODZjOT"},
+                "transport": "streamable_http",
             }
         }
     )
@@ -305,14 +312,18 @@ async def tools_llm_func(state):
         model = tools_llm_chat,
         tools=filtered_tools
     )
-
+    print("\n")
+    print("ToolLLM Output:")
+    print("\n")
+    print(filtered_tools)
+    print("\n")
 
     # Get Agent Result
     try:
 
         tool_result = await agent.ainvoke(
             {"messages": [HumanMessage(content="You are an expert in image analysis, 3D modeling, and Blender scripting."+
-            "Recreate the provided Scene in Blender. Use Polyhaven assets and Blender Code Execution.\n"+state["vision"])]}
+            "Recreate the provided Scene in Blender. Use Polyhaven assets and ragflow_retrieval for Blender Code Execution.\n"+state["vision"])]}
         )
         
 
@@ -372,9 +383,6 @@ async def tools_llm_func(state):
             {"messages": [HumanMessage(content="Execute the following Blender Python Code:\n"+screenshot_code+
             "\nIf it does not work try to fix and reexecute it.")]}
         )
-        print("\n")
-        print("ToolLLM Output:")
-        print("\n")
         print(screenshot_code)
         print("\n")
         print("Screenshot taken.")
@@ -413,6 +421,11 @@ async def tools_llm_func_feedback(state):
                 "command": "uvx",
                 "args": ["blender-mcp"],
                 "transport": "stdio",
+            },
+            "ragflow_mcp": {
+                "url": "http://127.0.0.1:9382/mcp",
+                "headers": {"api_key": "ragflow-YwMWYyZTc0N2M1YjExZjBiYjUwODZjOT"},
+                "transport": "streamable_http",
             }
         }
     )
@@ -442,13 +455,15 @@ async def tools_llm_func_feedback(state):
     print("\n")
     print("ToolLLM Output:")
     print("\n")
+    print(filtered_tools)
+    print("\n")
 
     # Get Agent Result
     try:
 
         tool_result = await agent.ainvoke(
             {"messages": [HumanMessage(content="You are an expert in image analysis, 3D modeling, and Blender scripting."+
-            " Adjust the Scene in Blender to minimize the differences and errors.\n"+state["visionloop"]+
+            " Adjust the Scene in Blender to minimize the differences and errors. Use Polyhaven assets and ragflow_retrieval for Blender Code Execution.\n"+state["visionloop"]+
             "\n Stick to the description of the scene.\n"+state["vision"])]}
         )
 
