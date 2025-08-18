@@ -303,7 +303,7 @@ async def tools_llm_func(state):
     # Create Tool Agent
     agent = create_react_agent(
         model = tools_llm_chat,
-        tools=tools
+        tools=filtered_tools
     )
 
 
@@ -435,7 +435,7 @@ async def tools_llm_func_feedback(state):
     #Create Tool Agent
     agent = create_react_agent(
         model = tools_llm_chat,
-        tools=tools
+        tools=filtered_tools
     )
 
     # Output 
@@ -623,7 +623,7 @@ async def branching_feedback(state):
     # Create Tool Agent
     agent = create_react_agent(
         model = tools_llm_chat,
-        tools=tools
+        tools=filtered_tools
     )
     
 
