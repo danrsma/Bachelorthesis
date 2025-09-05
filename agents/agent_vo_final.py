@@ -76,6 +76,7 @@ class MyState(TypedDict):
     visionloop: str
     iter: str
     filepath: str
+    filepath_old: str
     userinput: str
 
 def prompt_func(data):
@@ -188,7 +189,7 @@ async def vision_llm_func(state: MyState) -> MyState:
     print("\n")
 
     state["vision"] = vision_result.content
-
+    state["filepath_old"] = state["filepath"]
     return state
 
 async def vision_llm_func_feedback(state: MyState) -> MyState:
@@ -217,6 +218,20 @@ async def vision_llm_func_feedback(state: MyState) -> MyState:
     image_b64_3 = convert_to_base64(pil_image_3)
     image_b64_4 = convert_to_base64(pil_image_4)
 
+    file_path_old = state["filepath_old"]
+    
+    try:
+        pil_image = Image.open(file_path_old)
+    except Exception as e:
+        print(f"Error in main execution: {e}")
+
+    images = [pil_image_1,pil_image_2,pil_image_3,pil_image_4]
+    images_old = [pil_image,pil_image,pil_image,pil_image]
+    images_comb = []
+    for i,j in zip(images,images_old):
+        combine = combine_images_side_by_side(i,j)
+        convert = convert_to_base64(combine)
+        images_comb.append(convert)
 
     # Create Vision Agent Chain
     vision_llm_chat = ChatOllama(
@@ -229,31 +244,31 @@ async def vision_llm_func_feedback(state: MyState) -> MyState:
 
     # Create Prompt
     prompt_vision_loop = """You are an expert in image analysis, 3D modeling, and Blender scripting. 
-            Provide a detailed comparison of the image and the description.
-            Mark out how the image is different from the description.
-            Describe the errors you see in the image.
+            Provide a detailed comparison of the image on the left and the image on the right side.
+            Mark out how the left image is different from the image on the right.
+            Describe the errors you see in the image on the left.
             Describe adjustments one could make to improve the scene.
             """+state["vision"]
 
     # Get Agent Chain Result
     vision_result1 = chain.invoke({
         "text": prompt_vision_loop,
-        "image": image_b64_1,
+        "image": images_comb[0],
     })
     # Get Agent Chain Result
     vision_result2 = chain.invoke({
         "text": prompt_vision_loop,
-        "image": image_b64_2,
+        "image": images_comb[1],
     })
     # Get Agent Chain Result
     vision_result3 = chain.invoke({
         "text": prompt_vision_loop,
-        "image": image_b64_3,
+        "image": images_comb[2],
     })
     # Get Agent Chain Result
     vision_result4 = chain.invoke({
         "text": prompt_vision_loop,
-        "image": image_b64_4,
+        "image": images_comb[3],
     })
     # Summarize Results
     vision_prompt_loop = f"""List all the different errors, assets and differences from the following texts.\n
