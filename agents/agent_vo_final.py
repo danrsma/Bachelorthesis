@@ -339,50 +339,50 @@ async def tools_llm_func(state):
     # Make Viewport Screenshots
     iter = state["iter"]
     screenshot_code = f"""import bpy
-import math
-import mathutils
+    import math
+    import mathutils
 
-# Set Eevee Next as render engine
-bpy.context.scene.render.engine = 'BLENDER_EEVEE_NEXT'
+    # Set Eevee Next as render engine
+    bpy.context.scene.render.engine = 'BLENDER_EEVEE_NEXT'
 
-# Remove existing cameras (optional)
-for obj in list(bpy.data.objects):
-    if obj.type == 'CAMERA':
-        bpy.data.objects.remove(obj)
+    # Remove existing cameras (optional)
+    for obj in list(bpy.data.objects):
+        if obj.type == 'CAMERA':
+            bpy.data.objects.remove(obj)
 
-# Camera parameters
-radius = 30      # distance from center
-height = 15      # Z height
-center = (0, 0, 5)
-angles_deg = [0, 90, 180, 270]  # positions around the object
+    # Camera parameters
+    radius = 30      # distance from center
+    height = 15      # Z height
+    center = (0, 0, 5)
+    angles_deg = [0, 90, 180, 270]  # positions around the object
 
-for i, angle_deg in enumerate(angles_deg, start=1):
-    angle_rad = math.radians(angle_deg)
-    
-    # Camera position
-    x = center[0] + radius * math.cos(angle_rad)
-    y = center[1] + radius * math.sin(angle_rad)
-    z = height
-    
-    # Create new camera
-    cam_data = bpy.data.cameras.new(name="Camera_"+str(i))
-    cam_object = bpy.data.objects.new("Camera_"+str(i), cam_data)
-    cam_object.location = (x, y, z)
-    
-    # Rotate camera to face the object
-    direction = mathutils.Vector(center) - cam_object.location
-    rot_quat = direction.to_track_quat('-Z', 'Y')
-    cam_object.rotation_euler = rot_quat.to_euler()
-    
-    # Link camera to scene
-    bpy.context.collection.objects.link(cam_object)
-    
-    # Set as active camera and render
-    bpy.context.scene.camera = cam_object
-    bpy.context.scene.render.filepath = "C:/Users/cross/Desktop/Feedback_{iter}_"+str(i)+".png"
-    bpy.ops.render.render(write_still=True)
+    for i, angle_deg in enumerate(angles_deg, start=1):
+        angle_rad = math.radians(angle_deg)
+        
+        # Camera position
+        x = center[0] + radius * math.cos(angle_rad)
+        y = center[1] + radius * math.sin(angle_rad)
+        z = height
+        
+        # Create new camera
+        cam_data = bpy.data.cameras.new(name="Camera_"+str(i))
+        cam_object = bpy.data.objects.new("Camera_"+str(i), cam_data)
+        cam_object.location = (x, y, z)
+        
+        # Rotate camera to face the object
+        direction = mathutils.Vector(center) - cam_object.location
+        rot_quat = direction.to_track_quat('-Z', 'Y')
+        cam_object.rotation_euler = rot_quat.to_euler()
+        
+        # Link camera to scene
+        bpy.context.collection.objects.link(cam_object)
+        
+        # Set as active camera and render
+        bpy.context.scene.camera = cam_object
+        bpy.context.scene.render.filepath = "C:/Users/cross/Desktop/Feedback_{iter}_"+str(i)+".png"
+        bpy.ops.render.render(write_still=True)
 
-    """
+        """
     try:
 
         tool_result = await agent.ainvoke(
@@ -472,51 +472,51 @@ async def tools_llm_func_feedback(state):
     # Make Viewport Screenshots
     iter = state["iter"]
     screenshot_code = f"""import bpy
-import math
-import mathutils
+    import math
+    import mathutils
 
-# Set Eevee Next as render engine
-bpy.context.scene.render.engine = 'BLENDER_EEVEE_NEXT'
+    # Set Eevee Next as render engine
+    bpy.context.scene.render.engine = 'BLENDER_EEVEE_NEXT'
 
-# Remove existing cameras (optional)
-for obj in list(bpy.data.objects):
-    if obj.type == 'CAMERA':
-        bpy.data.objects.remove(obj)
+    # Remove existing cameras (optional)
+    for obj in list(bpy.data.objects):
+        if obj.type == 'CAMERA':
+            bpy.data.objects.remove(obj)
 
-# Camera parameters
-radius = 30      # distance from center
-height = 15      # Z height
-center = (0, 0, 5)
-angles_deg = [0, 90, 180, 270]  # positions around the object
+    # Camera parameters
+    radius = 30      # distance from center
+    height = 15      # Z height
+    center = (0, 0, 5)
+    angles_deg = [0, 90, 180, 270]  # positions around the object
 
-for i, angle_deg in enumerate(angles_deg, start=1):
-    angle_rad = math.radians(angle_deg)
-    
-    # Camera position
-    x = center[0] + radius * math.cos(angle_rad)
-    y = center[1] + radius * math.sin(angle_rad)
-    z = height
-    
-    # Create new camera
-    cam_data = bpy.data.cameras.new(name="Camera_"+str(i))
-    cam_object = bpy.data.objects.new("Camera_"+str(i), cam_data)
-    cam_object.location = (x, y, z)
-    
-    # Rotate camera to face the object
-    direction = mathutils.Vector(center) - cam_object.location
-    rot_quat = direction.to_track_quat('-Z', 'Y')
-    cam_object.rotation_euler = rot_quat.to_euler()
-    
-    # Link camera to scene
-    bpy.context.collection.objects.link(cam_object)
-    
-    # Set as active camera and render
-    bpy.context.scene.camera = cam_object
-    bpy.context.scene.render.filepath = "C:/Users/cross/Desktop/Feedback_{iter}_"+str(i)+".png"
-    bpy.ops.render.render(write_still=True)
+    for i, angle_deg in enumerate(angles_deg, start=1):
+        angle_rad = math.radians(angle_deg)
+        
+        # Camera position
+        x = center[0] + radius * math.cos(angle_rad)
+        y = center[1] + radius * math.sin(angle_rad)
+        z = height
+        
+        # Create new camera
+        cam_data = bpy.data.cameras.new(name="Camera_"+str(i))
+        cam_object = bpy.data.objects.new("Camera_"+str(i), cam_data)
+        cam_object.location = (x, y, z)
+        
+        # Rotate camera to face the object
+        direction = mathutils.Vector(center) - cam_object.location
+        rot_quat = direction.to_track_quat('-Z', 'Y')
+        cam_object.rotation_euler = rot_quat.to_euler()
+        
+        # Link camera to scene
+        bpy.context.collection.objects.link(cam_object)
+        
+        # Set as active camera and render
+        bpy.context.scene.camera = cam_object
+        bpy.context.scene.render.filepath = "C:/Users/cross/Desktop/Feedback_{iter}_"+str(i)+".png"
+        bpy.ops.render.render(write_still=True)
 
-    """
-    
+        """
+        
     try:
 
         tool_result = await agent.ainvoke(
