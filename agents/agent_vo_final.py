@@ -248,7 +248,7 @@ async def vision_llm_func_feedback(state: MyState) -> MyState:
             Mark out how the left image is different from the image on the right.
             Describe the errors you see in the image on the left.
             Describe adjustments one could make to improve the scene.
-            """+state["vision"]
+            """
 
     # Get Agent Chain Result
     vision_result1 = chain.invoke({
