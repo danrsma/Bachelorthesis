@@ -239,42 +239,84 @@ async def vision_llm_func_feedback(state: MyState) -> MyState:
         temperature=0.5,
     )
 
-    prompt_func_runnable = RunnableLambda(prompt_func)
-    chain = prompt_func_runnable | vision_llm_chat
+    if file_path_old == "":
 
-    # Create Prompt
-    prompt_vision_loop = """You are an expert in image analysis, 3D modeling, and Blender scripting. 
-            Provide a detailed comparison of the image on the left and the image on the right side.
-            Mark out how the left image is different from the image on the right.
-            Describe the errors you see in the image on the left.
+        prompt_func_runnable = RunnableLambda(prompt_func)
+        chain = prompt_func_runnable | vision_llm_chat
+
+        # Create Prompt
+        prompt_vision_loop = """You are an expert in image analysis, 3D modeling, and Blender scripting. 
+            Provide a detailed comparison of the image and the description.
+            Mark out how the image is different from the description.
+            Describe the errors you see in the image.
             Describe adjustments one could make to improve the scene.
-            """
+            """+state["vision"]
 
-    # Get Agent Chain Result
-    vision_result1 = chain.invoke({
-        "text": prompt_vision_loop,
-        "image": images_comb[0],
-    })
-    # Get Agent Chain Result
-    vision_result2 = chain.invoke({
-        "text": prompt_vision_loop,
-        "image": images_comb[1],
-    })
-    # Get Agent Chain Result
-    vision_result3 = chain.invoke({
-        "text": prompt_vision_loop,
-        "image": images_comb[2],
-    })
-    # Get Agent Chain Result
-    vision_result4 = chain.invoke({
-        "text": prompt_vision_loop,
-        "image": images_comb[3],
-    })
-    # Summarize Results
-    vision_prompt_loop = f"""List all the different errors, assets and differences from the following texts.\n
-    {vision_result1.content}\n{vision_result2.content}\n{vision_result3.content}\n{vision_result4.content}
-    """
-    vision_result = vision_llm_chat.invoke(vision_prompt_loop)
+        # Get Agent Chain Result
+        vision_result1 = chain.invoke({
+            "text": prompt_vision_loop,
+            "image": image_b64_1,
+        })
+        # Get Agent Chain Result
+        vision_result2 = chain.invoke({
+            "text": prompt_vision_loop,
+            "image": image_b64_2,
+        })
+        # Get Agent Chain Result
+        vision_result3 = chain.invoke({
+            "text": prompt_vision_loop,
+            "image": image_b64_3,
+        })
+        # Get Agent Chain Result
+        vision_result4 = chain.invoke({
+            "text": prompt_vision_loop,
+            "image": image_b64_4,
+        })
+        # Summarize Results
+        vision_prompt_loop = f"""List all the different errors, assets and differences from the following texts.\n
+        {vision_result1.content}\n{vision_result2.content}\n{vision_result3.content}\n{vision_result4.content}
+        """
+        vision_result = vision_llm_chat.invoke(vision_prompt_loop)
+
+    
+    else:
+
+        prompt_func_runnable = RunnableLambda(prompt_func)
+        chain = prompt_func_runnable | vision_llm_chat
+
+        # Create Prompt
+        prompt_vision_loop = """You are an expert in image analysis, 3D modeling, and Blender scripting. 
+                Provide a detailed comparison of the image on the left and the image on the right side.
+                Mark out how the left image is different from the image on the right.
+                Describe the errors you see in the image on the left.
+                Describe adjustments one could make to improve the scene.
+                """
+
+        # Get Agent Chain Result
+        vision_result1 = chain.invoke({
+            "text": prompt_vision_loop,
+            "image": images_comb[0],
+        })
+        # Get Agent Chain Result
+        vision_result2 = chain.invoke({
+            "text": prompt_vision_loop,
+            "image": images_comb[1],
+        })
+        # Get Agent Chain Result
+        vision_result3 = chain.invoke({
+            "text": prompt_vision_loop,
+            "image": images_comb[2],
+        })
+        # Get Agent Chain Result
+        vision_result4 = chain.invoke({
+            "text": prompt_vision_loop,
+            "image": images_comb[3],
+        })
+        # Summarize Results
+        vision_prompt_loop = f"""List all the different errors, assets and differences from the following texts.\n
+        {vision_result1.content}\n{vision_result2.content}\n{vision_result3.content}\n{vision_result4.content}
+        """
+        vision_result = vision_llm_chat.invoke(vision_prompt_loop)
 
     print("\n")
     print("ImageLLM Output:")
