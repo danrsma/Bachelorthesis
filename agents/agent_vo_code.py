@@ -117,7 +117,7 @@ async def vision_llm_func(state: MyState) -> MyState:
     if file_path == "":
         # Create Vision Agent Chain
         vision_llm_chat = ChatOllama(
-            model="gemma3:12b",
+            model="gemma:latest",
             temperature=0.9,
         )
 
@@ -338,7 +338,7 @@ async def main():
     print(input_state)
 
     # Start Rendering Loop
-    for i in range(4):
+    for i in range(9):
         print("\n")
         print(f"++++++++++++++++++++++++++++++")
         print(f"+ Feedback Loop iteration: {str(i+2)} +")
