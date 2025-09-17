@@ -736,7 +736,8 @@ async def main():
 
     
     # Start Feedback Loop
-    for i in range(9):
+    n = 9
+    for i in range(n):
         print("\n")
         print(f"++++++++++++++++++++++++++++++")
         print(f"+ Feedback Loop iteration: {i+2} +")

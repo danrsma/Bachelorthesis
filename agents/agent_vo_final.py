@@ -778,9 +778,9 @@ async def main():
     output_state["filepath"] = file_path_loop
     input_state = output_state
 
-    
     # Start Feedback Loop
-    for i in range(9):
+    n = 9
+    for i in range(n):
         print("\n")
         print(f"++++++++++++++++++++++++++++++")
         print(f"+ Feedback Loop iteration: {i+2} +")

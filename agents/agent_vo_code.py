@@ -337,8 +337,9 @@ async def main():
     input_state = output_state
     print(input_state)
 
+    n = 9
     # Start Rendering Loop
-    for i in range(9):
+    for i in range(n):
         print("\n")
         print(f"++++++++++++++++++++++++++++++")
         print(f"+ Feedback Loop iteration: {str(i+2)} +")

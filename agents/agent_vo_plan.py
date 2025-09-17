@@ -621,7 +621,8 @@ async def main():
     input_state = output_state
     
     # Start Feedback Loop
-    for i in range(9):
+    n = 9
+    for i in range(n):
         print("\n")
         print(f"++++++++++++++++++++++++++++++")
         print(f"+ Feedback Loop iteration: {str(i+2)} +")
