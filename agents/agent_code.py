@@ -337,8 +337,8 @@ async def main():
     input_state = output_state
     print(input_state)
 
-    n = 9
     # Start Rendering Loop
+    n = 9
     for i in range(n):
         print("\n")
         print(f"++++++++++++++++++++++++++++++")
