@@ -5,7 +5,7 @@ from langchain_mcp_adapters.client import MultiServerMCPClient
 from langchain_core.runnables import RunnableLambda
 from langgraph.prebuilt import create_react_agent
 from langgraph.graph import StateGraph, START, END
-from langchain_google_genai import ChatGoogleGenerativeAI
+
 
 from typing import TypedDict
 import base64
@@ -114,19 +114,12 @@ async def vision_llm_func(state: MyState) -> MyState:
     # Get Image Data
     file_path = state["filepath"]
     if file_path == "":
-        # Create LLM Agent
-        if "GOOGLE_API_KEY" not in os.environ:
-            os.environ["GOOGLE_API_KEY"] = API_KEY
-        
-        vision_llm_chat = ChatGoogleGenerativeAI(
-            model="gemini-2.5-flash",
-            temperature=0,
-            max_tokens=10000,
-            timeout=None,
-            max_retries=2,
-            # other params...
+        # Create Vision Agent Chain
+        vision_llm_chat = ChatOllama(
+            model="llama4:latest",
+            base_url="http://localhost:11434",
+            temperature=0.5,
         )
-
 
         # Get Agent Result
         prompt = """You are an expert in image analysis, 3D modeling, and Blender scripting. 
@@ -157,13 +150,11 @@ async def vision_llm_func(state: MyState) -> MyState:
     if "GOOGLE_API_KEY" not in os.environ:
         os.environ["GOOGLE_API_KEY"] = API_KEY
     
-    vision_llm_chat = ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash",
-        temperature=0,
-        max_tokens=10000,
-        timeout=None,
-        max_retries=2,
-        # other params...
+    # Create Vision Agent Chain
+    vision_llm_chat = ChatOllama(
+        model="llama4:latest",
+        base_url="http://localhost:11434",
+        temperature=0.5,
     )
 
     prompt_func_runnable = RunnableLambda(prompt_func)
@@ -207,13 +198,11 @@ async def vision_llm_func_feedback(state: MyState) -> MyState:
     if "GOOGLE_API_KEY" not in os.environ:
         os.environ["GOOGLE_API_KEY"] = API_KEY
     
-    vision_llm_chat = ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash",
-        temperature=0,
-        max_tokens=10000,
-        timeout=None,
-        max_retries=2,
-        # other params...
+    # Create Vision Agent Chain
+    vision_llm_chat = ChatOllama(
+        model="llama4:latest",
+        base_url="http://localhost:11434",
+        temperature=0.5,
     )
 
     prompt_func_runnable = RunnableLambda(prompt_func)
@@ -263,16 +252,10 @@ async def tools_llm_func(state):
     filtered_tools = [t for t in tools if t.name not in {"get_hyper3d_status", "get_sketchfab_status", "search_sketchfab_models","download_sketchfab_models","generate_hyper3d_model_via_text","generate_hyper3d_model_via_images","poll_rodin_job_status","import_generated_asset"}]
     
     # Create LLM Agent
-    if "GOOGLE_API_KEY" not in os.environ:
-        os.environ["GOOGLE_API_KEY"] = API_KEY
-    
-    tools_llm_chat = ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash",
-        temperature=0,
-        max_tokens=10000,
-        timeout=None,
-        max_retries=2,
-        # other params...
+    tools_llm_chat = ChatOllama(
+        model="gpt-oss:120b",
+        base_url="http://localhost:11434",
+        temperature=0.5,
     )
     
     # Create Tool Agent
@@ -355,16 +338,10 @@ async def tools_llm_func_feedback(state):
     filtered_tools = [t for t in tools if t.name not in {"get_hyper3d_status", "get_sketchfab_status", "search_sketchfab_models","download_sketchfab_models","generate_hyper3d_model_via_text","generate_hyper3d_model_via_images","poll_rodin_job_status","import_generated_asset"}]
     
     # Create LLM Agent
-    if "GOOGLE_API_KEY" not in os.environ:
-        os.environ["GOOGLE_API_KEY"] = API_KEY
-    
-    tools_llm_chat = ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash",
-        temperature=0,
-        max_tokens=10000,
-        timeout=None,
-        max_retries=2,
-        # other params...
+    tools_llm_chat = ChatOllama(
+        model="gpt-oss:120b",
+        base_url="http://localhost:11434",
+        temperature=0.5,
     )
     
     #Create Tool Agent
